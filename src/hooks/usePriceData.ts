@@ -1,7 +1,8 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { PriceSnapshot, PriceRecord, TableSort, PeriodMode } from '../types'
 import { PRODUCTS } from '../data/products'
 import { generatePriceHistory } from '../data/mockData'
+import { isApiEnabled, fetchPrices } from '../api/client'
 
 // 年度キーを計算（決算月に基づく）
 function getFiscalYearKey(dateStr: string, fiscalMonth: number): string {
@@ -77,7 +78,50 @@ export function usePriceData() {
   const [startDate, setStartDate] = useState<string>('2025-04-01')
   const [endDate, setEndDate] = useState<string>('2026-04-07')
 
-  const allRecords = useMemo(() => generatePriceHistory(), [])
+  // API利用時のデータ格納用state
+  const [apiRecords, setApiRecords] = useState<PriceRecord[] | null>(null)
+  const [apiLoading, setApiLoading] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+
+  const useApi = isApiEnabled()
+
+  // モックデータ（API未使用時のフォールバック）
+  const mockRecords = useMemo(() => (useApi ? [] : generatePriceHistory()), [useApi])
+
+  // API有効時: バックエンドからデータ取得
+  useEffect(() => {
+    if (!useApi) return
+
+    let cancelled = false
+    setApiLoading(true)
+    setApiError(null)
+
+    fetchPrices({
+      startDate,
+      endDate,
+      limit: 10000,
+    })
+      .then((records) => {
+        if (!cancelled) {
+          setApiRecords(records)
+          setApiLoading(false)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('API取得エラー:', err)
+          setApiError(err.message)
+          setApiLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [useApi, startDate, endDate])
+
+  // データソース: APIデータまたはモックデータ
+  const allRecords = useApi ? (apiRecords ?? []) : mockRecords
 
   // 日付範囲でフィルタリング
   const filteredRecords = useMemo(() => {
@@ -205,7 +249,7 @@ export function usePriceData() {
     const today = new Date(2026, 3, 7)
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     const modeLabel = periodMode === 'day' ? '日別' : periodMode === 'month' ? '月別' : periodMode === 'fiscal_year' ? '年度別' : '年別'
-    const filename = `iron-prices-${modeLabel}-${dateStr}.csv`
+    const filename = `prices-${modeLabel}-${dateStr}.csv`
 
     // ヘッダー行（日別以外は平均価格列を追加）
     const isAggregated = periodMode !== 'day'
@@ -283,5 +327,9 @@ export function usePriceData() {
     setEndDate,
     chartRecords,
     downloadCsv,
+    // API関連の状態
+    isUsingApi: useApi,
+    apiLoading,
+    apiError,
   }
 }
