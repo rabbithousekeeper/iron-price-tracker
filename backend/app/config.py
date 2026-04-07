@@ -24,7 +24,7 @@ class Settings:
         origin.strip()
         for origin in os.getenv(
             "CORS_ORIGINS",
-            "http://localhost:5173,http://localhost:4173",
+            "http://localhost:5173,http://localhost:4173,https://iron-price-tracker.onrender.com",
         ).split(",")
     ]
 
