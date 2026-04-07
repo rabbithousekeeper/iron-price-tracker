@@ -1,7 +1,7 @@
 """手動スクレイピングサービス
 
-日本鉄鋼連盟（JISF）、日本鉄リサイクル工業会（JISRI）、東京製鐵（Tokyo Steel）から
-鉄鋼・鉄スクラップ価格データをスクレイピングで取得する。
+日本鉄鋼連盟（JISF）、日本鉄リサイクル工業会（JISRI）、東京製鐵（Tokyo Steel）、
+日本鉄源協会（Tetsugen）から鉄鋼・鉄スクラップ価格データをスクレイピングで取得する。
 
 POST /api/fetch/manual エンドポイントから呼び出される手動取得専用。
 """
@@ -28,6 +28,9 @@ JISRI_MARKET_URL = f"{JISRI_BASE_URL}/kakaku"
 
 # 東京製鐵株式会社の公表価格ページ
 TOKYO_STEEL_BASE_URL = "https://www.tokyosteel.co.jp"
+# 日本鉄源協会（Tetsugen）のスクラップ価格ページ（httpのみ）
+TETSUGEN_URL = "http://tetsugen.or.jp/kiso/2sukurap.htm"
+
 TOKYO_STEEL_SCRAP_URL = f"{TOKYO_STEEL_BASE_URL}/scrapprice/"
 TOKYO_STEEL_SALES_URL = f"{TOKYO_STEEL_BASE_URL}/salesprice/"
 
@@ -294,6 +297,58 @@ async def fetch_tokyo_steel_prices(db: Session) -> int:
     return total_saved
 
 
+async def fetch_tetsugen_prices(db: Session) -> int:
+    """日本鉄源協会からH2鉄スクラップ炉前価格（三地区平均）をスクレイピング
+
+    http://tetsugen.or.jp/kiso/2sukurap.htm の年度別月次テーブルを解析。
+    1987年度〜現在までの長期データを取得する。
+    """
+    total_saved = 0
+    errors: list[str] = []
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ja,en;q=0.9",
+    }
+
+    # httpのみ（httpsなし）
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
+        try:
+            resp = await client.get(TETSUGEN_URL)
+            resp.raise_for_status()
+
+            content = _decode_html(resp.content)
+            records = _parse_tetsugen_html(content)
+
+            if records:
+                total_saved += _upsert_records(db, records)
+                logger.info(f"日本鉄源協会: {len(records)}件取得")
+            else:
+                logger.warning("日本鉄源協会: 解析可能なデータが見つかりませんでした")
+
+        except httpx.HTTPStatusError as e:
+            msg = f"日本鉄源協会HTTPエラー: {e.response.status_code}"
+            logger.error(msg)
+            errors.append(msg)
+        except Exception as e:
+            msg = f"日本鉄源協会取得エラー: {str(e)}"
+            logger.error(msg)
+            errors.append(msg)
+
+    # 取得ログを記録
+    log = FetchLog(
+        source="tetsugen",
+        status="success" if not errors else "error",
+        message="; ".join(errors) if errors else f"{total_saved}件取得",
+        records_count=total_saved,
+    )
+    db.add(log)
+    db.commit()
+
+    return total_saved
+
+
 async def fetch_manual_all(db: Session) -> dict:
     """全手動ソースからデータを取得（手動エンドポイント用）"""
     results = {}
@@ -321,6 +376,14 @@ async def fetch_manual_all(db: Session) -> dict:
     except Exception as e:
         logger.error(f"東京製鐵取得エラー: {e}")
         results["tokyo_steel"] = {"status": "error", "message": str(e)}
+
+    # 日本鉄源協会
+    try:
+        count = await fetch_tetsugen_prices(db)
+        results["tetsugen"] = {"status": "success", "records": count}
+    except Exception as e:
+        logger.error(f"日本鉄源協会取得エラー: {e}")
+        results["tetsugen"] = {"status": "error", "message": str(e)}
 
     return results
 
@@ -500,6 +563,93 @@ def _parse_tokyo_steel_html(html: str, products: dict) -> list[dict]:
                 break
 
     return records
+
+
+def _parse_tetsugen_html(html: str) -> list[dict]:
+    """日本鉄源協会のHTMLからH2鉄スクラップ炉前価格（三地区平均）を抽出
+
+    テーブル構造（tables[0]）:
+    - Row3: ヘッダー（cell[2]=4月〜cell[10]=12月, cell[11]=1月, cell[12]=2月, cell[13]=3月）
+    - Row4〜: データ（cell[1]=年度, cell[2〜13]=月次価格）
+    - 年度をまたぐ: cell[2〜10]は年度年の4月〜12月、cell[11〜13]は翌年の1月〜3月
+    """
+    records = []
+
+    # 最初のテーブルを取得
+    tables = re.findall(r"<table[^>]*>(.*?)</table>", html, re.DOTALL | re.IGNORECASE)
+    if not tables:
+        return records
+
+    table_html = tables[0]
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL | re.IGNORECASE)
+
+    # 月マッピング: cell index → 月番号
+    # cell[2]=4月, cell[3]=5月, ..., cell[10]=12月, cell[11]=1月, cell[12]=2月, cell[13]=3月
+    CELL_TO_MONTH = {
+        2: 4, 3: 5, 4: 6, 5: 7, 6: 8, 7: 9, 8: 10, 9: 11, 10: 12,
+        11: 1, 12: 2, 13: 3,
+    }
+
+    # Row4以降（index 3〜）がデータ行
+    for row in rows[3:]:
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, re.DOTALL | re.IGNORECASE)
+        if len(cells) < 14:
+            continue
+
+        cell_texts = [re.sub(r"<[^>]+>", "", cell).strip() for cell in cells]
+
+        # cell[1] = 年度（例: "1987"）
+        fiscal_year_str = cell_texts[1].strip()
+        fiscal_year_match = re.search(r"(\d{4})", fiscal_year_str)
+        if not fiscal_year_match:
+            continue
+        fiscal_year = int(fiscal_year_match.group(1))
+
+        # cell[2〜13] = 月次価格
+        for cell_idx, month in CELL_TO_MONTH.items():
+            if cell_idx >= len(cell_texts):
+                continue
+
+            price_text = cell_texts[cell_idx]
+            price = _parse_tetsugen_price(price_text)
+            if price is None:
+                continue
+
+            # cell[11〜13]（1月〜3月）は翌年
+            year = fiscal_year + 1 if month <= 3 else fiscal_year
+            price_date = date(year, month, 1)
+
+            records.append({
+                "product_id": "iron_scrap",
+                "price_date": price_date,
+                "price": price,
+                "source": "tetsugen",
+                "created_at": datetime.utcnow(),
+            })
+
+    return records
+
+
+def _parse_tetsugen_price(text: str) -> float | None:
+    """鉄源協会の価格テキストを数値に変換
+
+    カンマ・括弧を除去してfloat変換。空文字はスキップ。
+    例: "14,400" → 14400.0, "(12,000)" → 12000.0, "" → None
+    """
+    if not text:
+        return None
+
+    # 括弧・カンマ・全角スペース除去
+    cleaned = text.replace(",", "").replace("，", "").replace("(", "").replace(")", "")
+    cleaned = cleaned.replace("（", "").replace("）", "").replace("\u3000", "").replace(" ", "")
+
+    if not cleaned:
+        return None
+
+    m = re.search(r"(\d+\.?\d*)", cleaned)
+    if m:
+        return float(m.group(1))
+    return None
 
 
 def _extract_price_from_cells(cells: list[str]) -> float | None:
