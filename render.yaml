@@ -1,8 +1,9 @@
 # Render Blueprint（Infrastructure as Code）
 # https://render.com/docs/blueprint-spec
+# Supabase PostgreSQLを外部DBとして使用
 
 services:
-  # バックエンドAPI（FastAPI）
+  # バックエンドAPI（FastAPI + Supabase）
   - type: web
     name: price-tracker-api
     runtime: python
@@ -12,12 +13,12 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: price-tracker-db
-          property: connectionString
+      - key: SUPABASE_DB_URL
+        sync: false  # Renderダッシュボードから手動設定（Supabase PostgreSQL接続URL）
       - key: EIA_API_KEY
         sync: false  # Renderダッシュボードから手動設定
+      - key: USE_REAL_DATA
+        value: "true"
       - key: CORS_ORIGINS
         value: https://your-frontend-url.onrender.com
       - key: FETCH_INTERVAL_HOURS
@@ -25,9 +26,3 @@ services:
       - key: PYTHON_VERSION
         value: "3.12.0"
     healthCheckPath: /health
-
-databases:
-  - name: price-tracker-db
-    plan: free
-    region: oregon
-    postgresMajorVersion: "16"

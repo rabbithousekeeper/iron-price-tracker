@@ -1,6 +1,9 @@
 """定期データ取得スケジューラー
 
-APSchedulerを使用して各APIから週1回データを取得する
+APSchedulerを使用して週1回、以下のAPIからデータを自動取得する:
+- World Bank API: 銅・アルミ・亜鉛・ニッケル・鉛・錫・鉄鉱石
+- EIA API: ナフサ・原油
+- 経産省CSV: 石油化学系（ナフサ、エチレン、プロピレン、ベンゼン）
 """
 
 import asyncio
@@ -30,25 +33,35 @@ def _run_async(coro):
 
 
 def fetch_all_data():
-    """全データソースからデータを取得するジョブ"""
+    """全自動データソースからデータを取得するジョブ
+
+    週1回実行:
+    1. World Bank API → 銅、アルミ、亜鉛、ニッケル、鉛、錫、鉄鉱石
+    2. EIA API → ナフサ、原油
+    3. 経産省CSV → 石油化学系（ナフサ、エチレン、プロピレン、ベンゼン）
+    """
+    if not settings.USE_REAL_DATA:
+        logger.info("USE_REAL_DATA=false のため、定期データ取得をスキップします")
+        return
+
     logger.info("定期データ取得を開始します...")
     db = SessionLocal()
     try:
-        # World Bank API
+        # World Bank API（銅・アルミ・亜鉛・ニッケル・鉛・錫・鉄鉱石）
         try:
             count = _run_async(fetch_worldbank_prices(db))
             logger.info(f"World Bank: {count}件取得完了")
         except Exception as e:
             logger.error(f"World Bankデータ取得失敗: {e}")
 
-        # EIA API
+        # EIA API（ナフサ・原油）
         try:
             count = _run_async(fetch_eia_prices(db))
             logger.info(f"EIA: {count}件取得完了")
         except Exception as e:
             logger.error(f"EIAデータ取得失敗: {e}")
 
-        # 経産省CSV
+        # 経産省CSV（石油化学系）
         try:
             count = _run_async(fetch_meti_prices(db))
             logger.info(f"経産省: {count}件取得完了")
@@ -62,11 +75,15 @@ def fetch_all_data():
 
 def start_scheduler():
     """スケジューラーを開始"""
+    if not settings.USE_REAL_DATA:
+        logger.info("USE_REAL_DATA=false のため、スケジューラーを開始しません")
+        return
+
     scheduler.add_job(
         fetch_all_data,
         trigger=IntervalTrigger(hours=settings.FETCH_INTERVAL_HOURS),
         id="fetch_all_data",
-        name="全データソースからの定期取得",
+        name="全データソースからの定期取得（週1回）",
         replace_existing=True,
     )
     scheduler.start()

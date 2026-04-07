@@ -3,7 +3,13 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from app.config import settings
 
-engine = create_engine(settings.database_url_fixed, pool_pre_ping=True)
+# Supabase PostgreSQL接続エンジン
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -21,5 +27,5 @@ def get_db():
 
 
 def init_db():
-    """テーブルを作成"""
+    """Supabase上にテーブルを作成（存在しない場合のみ）"""
     Base.metadata.create_all(bind=engine)
