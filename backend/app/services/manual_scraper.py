@@ -28,7 +28,8 @@ JISRI_MARKET_URL = f"{JISRI_BASE_URL}/kakaku/kakaku.html"
 
 # 東京製鐵株式会社の公表価格ページ
 TOKYO_STEEL_BASE_URL = "https://www.tokyosteel.co.jp"
-TOKYO_STEEL_PRICE_URL = f"{TOKYO_STEEL_BASE_URL}/product/price.html"
+TOKYO_STEEL_SCRAP_URL = f"{TOKYO_STEEL_BASE_URL}/scrapprice/"
+TOKYO_STEEL_SALES_URL = f"{TOKYO_STEEL_BASE_URL}/salesprice/"
 
 # スクレイピング対象の鉄鋼製品マッピング
 JISF_PRODUCTS = {
@@ -240,25 +241,43 @@ async def fetch_tokyo_steel_prices(db: Session) -> int:
     }
 
     async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
+        # スクラップ購入価格ページ
         try:
-            resp = await client.get(TOKYO_STEEL_PRICE_URL)
+            resp = await client.get(TOKYO_STEEL_SCRAP_URL)
             resp.raise_for_status()
-
             content = _decode_html(resp.content)
-            records = _parse_tokyo_steel_html(content)
-
+            records = _parse_tokyo_steel_html(content, TOKYO_STEEL_SCRAP_PRODUCTS)
             if records:
                 total_saved += _upsert_records(db, records)
-                logger.info(f"東京製鐵: {len(records)}件取得")
+                logger.info(f"東京製鐵（スクラップ）: {len(records)}件取得")
             else:
-                logger.warning("東京製鐵: 解析可能なデータが見つかりませんでした")
-
+                logger.warning("東京製鐵（スクラップ）: 解析可能なデータが見つかりませんでした")
         except httpx.HTTPStatusError as e:
-            msg = f"東京製鐵HTTPエラー: {e.response.status_code}"
+            msg = f"東京製鐵（スクラップ）HTTPエラー: {e.response.status_code}"
             logger.error(msg)
             errors.append(msg)
         except Exception as e:
-            msg = f"東京製鐵取得エラー: {str(e)}"
+            msg = f"東京製鐵（スクラップ）取得エラー: {str(e)}"
+            logger.error(msg)
+            errors.append(msg)
+
+        # 鋼材販売価格ページ
+        try:
+            resp = await client.get(TOKYO_STEEL_SALES_URL)
+            resp.raise_for_status()
+            content = _decode_html(resp.content)
+            records = _parse_tokyo_steel_html(content, TOKYO_STEEL_PRODUCT_PRODUCTS)
+            if records:
+                total_saved += _upsert_records(db, records)
+                logger.info(f"東京製鐵（鋼材）: {len(records)}件取得")
+            else:
+                logger.warning("東京製鐵（鋼材）: 解析可能なデータが見つかりませんでした")
+        except httpx.HTTPStatusError as e:
+            msg = f"東京製鐵（鋼材）HTTPエラー: {e.response.status_code}"
+            logger.error(msg)
+            errors.append(msg)
+        except Exception as e:
+            msg = f"東京製鐵（鋼材）取得エラー: {str(e)}"
             logger.error(msg)
             errors.append(msg)
 
@@ -389,14 +408,12 @@ def _parse_jisri_html(html: str) -> list[dict]:
     return records
 
 
-def _parse_tokyo_steel_html(html: str) -> list[dict]:
-    """東京製鐵のHTMLから鉄スクラップ購入価格・鋼材販売価格を抽出
+def _parse_tokyo_steel_html(html: str, products: dict) -> list[dict]:
+    """東京製鐵のHTMLから価格データを抽出
 
-    テーブル構造からキーワードマッチで価格行を検出し、
-    数値データを抽出する。スクラップ購入価格と鋼材販売価格の両方を対象とする。
+    テーブル構造からキーワードマッチで価格行を検出し、数値データを抽出する。
     """
     records = []
-    all_products = {**TOKYO_STEEL_SCRAP_PRODUCTS, **TOKYO_STEEL_PRODUCT_PRODUCTS}
 
     # テーブル行を抽出（<tr>タグ）
     rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.DOTALL | re.IGNORECASE)
@@ -409,7 +426,7 @@ def _parse_tokyo_steel_html(html: str) -> list[dict]:
         cell_texts = [re.sub(r"<[^>]+>", "", cell).strip() for cell in cells]
         row_text = " ".join(cell_texts)
 
-        for key, product in all_products.items():
+        for key, product in products.items():
             if any(kw in row_text for kw in product["keywords"]):
                 price = _extract_price_from_cells(cell_texts)
                 if price is not None:
