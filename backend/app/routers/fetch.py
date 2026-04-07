@@ -16,6 +16,7 @@ from app.services.manual_scraper import (
     fetch_jisf_prices,
     fetch_jisri_prices,
     fetch_tokyo_steel_prices,
+    fetch_tetsugen_prices,
     fetch_manual_all,
 )
 
@@ -125,6 +126,13 @@ async def trigger_fetch_jisri(db: Session = Depends(get_db)):
     """日本鉄リサイクル工業会から鉄スクラップ価格を手動取得"""
     count = await fetch_jisri_prices(db)
     return {"status": "success", "source": "jisri", "records_saved": count}
+
+
+@router.post("/manual/tetsugen")
+async def trigger_fetch_tetsugen(db: Session = Depends(get_db)):
+    """日本鉄源協会からH2鉄スクラップ炉前価格（三地区平均）を手動取得"""
+    count = await fetch_tetsugen_prices(db)
+    return {"status": "success", "source": "tetsugen", "records_saved": count}
 
 
 @router.post("/manual/tokyo-steel")
