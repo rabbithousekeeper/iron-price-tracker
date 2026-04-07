@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { PriceSnapshot, PriceRecord, TableSort, PeriodMode } from '../types'
 import { PRODUCTS } from '../data/products'
 import { generatePriceHistory } from '../data/mockData'
-import { isApiEnabled, fetchPrices } from '../api/client'
+import { isApiEnabled, fetchPrices, triggerManualFetch } from '../api/client'
 
 // 年度キーを計算（決算月に基づく）
 function getFiscalYearKey(dateStr: string, fiscalMonth: number): string {
@@ -82,6 +82,9 @@ export function usePriceData() {
   const [apiRecords, setApiRecords] = useState<PriceRecord[] | null>(null)
   const [apiLoading, setApiLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [fetchVersion, setFetchVersion] = useState(0) // データ再取得用トリガー
+  const [manualFetching, setManualFetching] = useState(false)
+  const [manualFetchResult, setManualFetchResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const useApi = isApiEnabled()
 
@@ -118,7 +121,29 @@ export function usePriceData() {
     return () => {
       cancelled = true
     }
-  }, [useApi, startDate, endDate])
+  }, [useApi, startDate, endDate, fetchVersion])
+
+  // データを再取得
+  const refreshData = useCallback(() => {
+    setFetchVersion((v) => v + 1)
+  }, [])
+
+  // 手動スクレイピング実行
+  const runManualFetch = useCallback(async () => {
+    setManualFetching(true)
+    setManualFetchResult(null)
+    try {
+      const result = await triggerManualFetch()
+      setManualFetchResult({ success: true, message: result.message })
+      // スクレイピング完了後にデータを再取得
+      setFetchVersion((v) => v + 1)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'スクレイピングに失敗しました'
+      setManualFetchResult({ success: false, message })
+    } finally {
+      setManualFetching(false)
+    }
+  }, [])
 
   // データソース: APIデータまたはモックデータ
   const allRecords = useApi ? (apiRecords ?? []) : mockRecords
@@ -331,5 +356,9 @@ export function usePriceData() {
     isUsingApi: useApi,
     apiLoading,
     apiError,
+    refreshData,
+    runManualFetch,
+    manualFetching,
+    manualFetchResult,
   }
 }
