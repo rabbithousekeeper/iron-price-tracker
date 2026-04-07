@@ -1,17 +1,16 @@
 import type { PriceRecord } from '../types'
 import { PRODUCTS } from './products'
 
-// Linear Congruential Generator for deterministic "random" numbers
+// 決定論的な乱数生成器 (Linear Congruential Generator)
 function createLCG(seed: number) {
   let s = seed
   return () => {
     s = (1664525 * s + 1013904223) & 0xffffffff
-    // Convert to unsigned and scale to [-1, 1]
     return ((s >>> 0) / 0xffffffff) * 2 - 1
   }
 }
 
-// Create a numeric seed from a string
+// 文字列からシード値を生成
 function stringToSeed(str: string): number {
   let hash = 0
   for (let i = 0; i < str.length; i++) {
@@ -20,59 +19,69 @@ function stringToSeed(str: string): number {
   return hash >>> 0
 }
 
-function formatMonthLabel(year: number, month: number): string {
-  return `${year}年${month}月`
+function formatDateLabel(year: number, month: number, day: number): string {
+  return `${year}年${month}月${day}日`
 }
 
-function formatMonthKey(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, '0')}`
+function formatDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
 
+// 日別価格データを生成（過去2年分）
 export function generatePriceHistory(): PriceRecord[] {
   const records: PriceRecord[] = []
 
-  // Generate 13 months: 12 months ago → current month (April 2026)
-  const currentYear = 2026
-  const currentMonth = 4 // April
+  // 2024年4月1日 ～ 2026年4月7日 の日別データ
+  const startDate = new Date(2024, 3, 1) // 2024-04-01
+  const endDate = new Date(2026, 3, 7)   // 2026-04-07
 
-  const months: Array<{ year: number; month: number }> = []
-  for (let i = 12; i >= 0; i--) {
-    let month = currentMonth - i
-    let year = currentYear
-    while (month <= 0) {
-      month += 12
-      year -= 1
-    }
-    months.push({ year, month })
+  // 日付リストを生成
+  const dates: Array<{ year: number; month: number; day: number }> = []
+  const current = new Date(startDate)
+  while (current <= endDate) {
+    dates.push({
+      year: current.getFullYear(),
+      month: current.getMonth() + 1,
+      day: current.getDate(),
+    })
+    current.setDate(current.getDate() + 1)
   }
 
   for (const product of PRODUCTS) {
     const lcg = createLCG(stringToSeed(product.id))
     let price = product.basePrice
 
-    for (const { year, month } of months) {
-      // Random walk: multiply by (1 + volatility * noise)
+    for (const { year, month, day } of dates) {
+      // 日別のランダムウォーク（月次よりボラティリティを小さくする）
       const noise = lcg()
-      // Scale noise to ~normal distribution approximation using 3 samples
       const noise2 = lcg()
       const noise3 = lcg()
       const normalApprox = (noise + noise2 + noise3) / 3
 
-      price = price * (1 + product.volatility * normalApprox)
+      // 日次ボラティリティ = 月次ボラティリティ / sqrt(22営業日)
+      const dailyVolatility = product.volatility / Math.sqrt(22)
+      price = price * (1 + dailyVolatility * normalApprox)
 
-      // Clamp to ±30% of basePrice
+      // ±30%にクランプ
       const minPrice = product.basePrice * 0.7
       const maxPrice = product.basePrice * 1.3
       price = Math.max(minPrice, Math.min(maxPrice, price))
 
-      // Round to nearest 100 JPY
-      price = Math.round(price / 100) * 100
+      // 価格の丸め（単位に応じて）
+      let roundedPrice: number
+      if (product.basePrice >= 10_000) {
+        roundedPrice = Math.round(price / 100) * 100
+      } else if (product.basePrice >= 1_000) {
+        roundedPrice = Math.round(price / 10) * 10
+      } else {
+        roundedPrice = Math.round(price)
+      }
 
       records.push({
         productId: product.id,
-        month: formatMonthKey(year, month),
-        monthLabel: formatMonthLabel(year, month),
-        price,
+        date: formatDateKey(year, month, day),
+        dateLabel: formatDateLabel(year, month, day),
+        price: roundedPrice,
       })
     }
   }

@@ -1,6 +1,7 @@
-import type { Product } from '../types'
+import type { Product, ProductCategory, DataSource } from '../types'
 
 export const PRODUCTS: Product[] = [
+  // === スクラップ ===
   {
     id: 'iron_scrap',
     nameJa: '鉄スクラップ',
@@ -12,6 +13,8 @@ export const PRODUCTS: Product[] = [
     color: '#ef4444',
     description: '関東地区H2相当品の鉄スクラップ価格',
   },
+
+  // === 薄板（フラット） ===
   {
     id: 'hot_rolled',
     nameJa: '熱延鋼板',
@@ -34,6 +37,19 @@ export const PRODUCTS: Product[] = [
     color: '#eab308',
     description: '国内流通・冷延コイル（一般用）市中価格',
   },
+  {
+    id: 'flat_bar',
+    nameJa: '平鋼',
+    nameEn: 'Flat Bar',
+    category: 'flat',
+    unit: '円/トン',
+    basePrice: 105_000,
+    volatility: 0.04,
+    color: '#d97706',
+    description: '一般構造用平鋼（SS400）市中価格',
+  },
+
+  // === 形鋼・棒鋼 ===
   {
     id: 'h_section',
     nameJa: 'H形鋼',
@@ -68,6 +84,19 @@ export const PRODUCTS: Product[] = [
     description: '普通線材（低炭素鋼）市中価格',
   },
   {
+    id: 'channel_steel',
+    nameJa: 'チャンネル鋼',
+    nameEn: 'Channel Steel',
+    category: 'long',
+    unit: '円/トン',
+    basePrice: 125_000,
+    volatility: 0.04,
+    color: '#10b981',
+    description: '一般構造用溝形鋼（SS400）市中価格',
+  },
+
+  // === 鋼管 ===
+  {
     id: 'steel_pipe',
     nameJa: '鋼管（一般配管用）',
     nameEn: 'Carbon Steel Pipe',
@@ -79,6 +108,19 @@ export const PRODUCTS: Product[] = [
     description: '一般配管用炭素鋼鋼管（SGP）市中価格',
   },
   {
+    id: 'square_pipe',
+    nameJa: '角パイプ',
+    nameEn: 'Square Steel Pipe',
+    category: 'pipe',
+    unit: '円/トン',
+    basePrice: 160_000,
+    volatility: 0.04,
+    color: '#0891b2',
+    description: '一般構造用角形鋼管（STKR400）市中価格',
+  },
+
+  // === ステンレス ===
+  {
     id: 'stainless_sheet',
     nameJa: 'ステンレス板（SUS304）',
     nameEn: 'Stainless Steel Sheet SUS304',
@@ -89,12 +131,161 @@ export const PRODUCTS: Product[] = [
     color: '#ec4899',
     description: 'SUS304冷延板（2B仕上げ）市中価格',
   },
+
+  // === 石油化学系 ===
+  {
+    id: 'naphtha',
+    nameJa: 'ナフサ',
+    nameEn: 'Naphtha',
+    category: 'petrochemical',
+    unit: '円/キロリットル',
+    basePrice: 65_000,
+    volatility: 0.10,
+    color: '#a855f7',
+    description: '国産ナフサ価格（原料用）',
+  },
+  {
+    id: 'ethylene',
+    nameJa: 'エチレン',
+    nameEn: 'Ethylene',
+    category: 'petrochemical',
+    unit: '円/トン',
+    basePrice: 120_000,
+    volatility: 0.09,
+    color: '#7c3aed',
+    description: '国内エチレン価格（汎用グレード）',
+  },
+  {
+    id: 'propylene',
+    nameJa: 'プロピレン',
+    nameEn: 'Propylene',
+    category: 'petrochemical',
+    unit: '円/トン',
+    basePrice: 110_000,
+    volatility: 0.09,
+    color: '#6d28d9',
+    description: '国内プロピレン価格（ポリマーグレード）',
+  },
+
+  // === 非鉄金属 ===
+  {
+    id: 'copper',
+    nameJa: '銅',
+    nameEn: 'Copper',
+    category: 'nonferrous',
+    unit: '円/kg',
+    basePrice: 1_350,
+    volatility: 0.07,
+    color: '#b45309',
+    description: '電気銅（JIS H 2121）建値',
+  },
+  {
+    id: 'aluminum',
+    nameJa: 'アルミニウム',
+    nameEn: 'Aluminum',
+    category: 'nonferrous',
+    unit: '円/kg',
+    basePrice: 420,
+    volatility: 0.06,
+    color: '#64748b',
+    description: 'アルミニウム新地金（99.7%）建値',
+  },
+  {
+    id: 'zinc',
+    nameJa: '亜鉛',
+    nameEn: 'Zinc',
+    category: 'nonferrous',
+    unit: '円/kg',
+    basePrice: 430,
+    volatility: 0.07,
+    color: '#78716c',
+    description: '亜鉛地金（蒸留亜鉛99.99%）建値',
+  },
+  {
+    id: 'nickel',
+    nameJa: 'ニッケル',
+    nameEn: 'Nickel',
+    category: 'nonferrous',
+    unit: '円/kg',
+    basePrice: 2_800,
+    volatility: 0.08,
+    color: '#a8a29e',
+    description: '電気ニッケル建値',
+  },
+
+  // === 特殊鋼 ===
+  {
+    id: 'tool_steel',
+    nameJa: '工具鋼',
+    nameEn: 'Tool Steel',
+    category: 'special_steel',
+    unit: '円/kg',
+    basePrice: 800,
+    volatility: 0.04,
+    color: '#be123c',
+    description: '合金工具鋼（SKD11相当）市中価格',
+  },
+  {
+    id: 'spring_steel',
+    nameJa: 'ばね鋼',
+    nameEn: 'Spring Steel',
+    category: 'special_steel',
+    unit: '円/kg',
+    basePrice: 350,
+    volatility: 0.05,
+    color: '#e11d48',
+    description: 'ばね鋼（SUP9相当）市中価格',
+  },
 ]
 
-export const CATEGORY_LABELS: Record<Product['category'], string> = {
-  scrap:     'スクラップ',
-  flat:      '薄板',
-  long:      '形鋼・棒鋼',
-  pipe:      '鋼管',
+export const CATEGORY_LABELS: Record<ProductCategory, string> = {
+  scrap: 'スクラップ',
+  flat: '薄板',
+  long: '形鋼・棒鋼',
+  pipe: '鋼管',
   stainless: 'ステンレス',
+  petrochemical: '石油化学',
+  nonferrous: '非鉄金属',
+  special_steel: '特殊鋼',
 }
+
+// カテゴリの表示順
+export const CATEGORY_ORDER: ProductCategory[] = [
+  'scrap',
+  'flat',
+  'long',
+  'pipe',
+  'stainless',
+  'petrochemical',
+  'nonferrous',
+  'special_steel',
+]
+
+// データソース情報
+export const DATA_SOURCES: DataSource[] = [
+  {
+    name: '日本鉄鋼連盟',
+    url: 'https://www.jisf.or.jp/',
+    description: '鉄鋼統計・市況情報',
+  },
+  {
+    name: '日本鉄リサイクル工業会',
+    url: 'https://www.jisri.or.jp/',
+    description: '鉄スクラップ価格情報',
+  },
+  {
+    name: '経済産業省 資源エネルギー庁',
+    url: 'https://www.enecho.meti.go.jp/',
+    description: '石油化学製品価格統計',
+  },
+  {
+    name: 'LME (London Metal Exchange)',
+    url: 'https://www.lme.com/',
+    description: '非鉄金属国際相場',
+  },
+  {
+    name: '日本特殊鋼流通協会',
+    url: 'https://www.tokusyuko.or.jp/',
+    description: '特殊鋼流通価格',
+  },
+]

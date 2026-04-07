@@ -5,46 +5,76 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ReferenceLine,
+  Legend,
   ResponsiveContainer,
 } from 'recharts'
-import type { PriceSnapshot } from '../../types'
-import { formatYAxisTick } from '../../utils/formatters'
-import { ChartTooltip } from './ChartTooltip'
+import type { PriceRecord, PriceSnapshot } from '../../types'
+import { formatYAxisTick, formatPriceJPY } from '../../utils/formatters'
+import { PRODUCTS } from '../../data/products'
 
 interface PriceLineChartProps {
-  snapshot: PriceSnapshot
+  selectedSnapshots: PriceSnapshot[]
+  chartRecords: PriceRecord[]
 }
 
-export function PriceLineChart({ snapshot }: PriceLineChartProps) {
-  const { product, history, currentPrice } = snapshot
+export function PriceLineChart({ selectedSnapshots, chartRecords }: PriceLineChartProps) {
+  if (selectedSnapshots.length === 0) return null
 
-  // Add prevPrice to each data point for tooltip display
-  const data = history.map((record, index) => ({
-    ...record,
-    prevPrice: index > 0 ? history[index - 1].price : undefined,
-  }))
+  // 日付ラベルの一覧を取得（最初の品目基準）
+  const firstProductId = selectedSnapshots[0].product.id
+  const dateLabels = chartRecords
+    .filter((r) => r.productId === firstProductId)
+    .map((r) => ({ date: r.date, dateLabel: r.dateLabel }))
 
-  const prices = history.map((r) => r.price)
-  const minPrice = Math.min(...prices)
-  const maxPrice = Math.max(...prices)
-  const padding = (maxPrice - minPrice) * 0.1
+  // グラフ用データを構築：各日付ごとに全品目の価格を横並びに
+  const data = dateLabels.map(({ date, dateLabel }) => {
+    const point: Record<string, unknown> = { date, dateLabel }
+    for (const snapshot of selectedSnapshots) {
+      const record = chartRecords.find(
+        (r) => r.productId === snapshot.product.id && r.date === date
+      )
+      if (record) {
+        point[snapshot.product.id] = record.price
+      }
+    }
+    return point
+  })
+
+  // Y軸の範囲を計算
+  const allPrices = chartRecords.map((r) => r.price)
+  const minPrice = Math.min(...allPrices)
+  const maxPrice = Math.max(...allPrices)
+  const padding = (maxPrice - minPrice) * 0.1 || maxPrice * 0.1
+
+  // 適切な丸め単位を決定
+  const range = maxPrice - minPrice + 2 * padding
+  let roundUnit = 1000
+  if (range < 100) roundUnit = 1
+  else if (range < 1000) roundUnit = 10
+  else if (range < 10000) roundUnit = 100
+
   const yDomain = [
-    Math.floor((minPrice - padding) / 1000) * 1000,
-    Math.ceil((maxPrice + padding) / 1000) * 1000,
+    Math.floor((minPrice - padding) / roundUnit) * roundUnit,
+    Math.ceil((maxPrice + padding) / roundUnit) * roundUnit,
   ]
 
+  // X軸のintervalを算出（データ点が多い場合に間引き）
+  const interval = data.length > 30 ? Math.floor(data.length / 12) : data.length > 13 ? 2 : 0
+
   return (
-    <div className="w-full h-72">
+    <div className="w-full h-80">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis
-            dataKey="monthLabel"
-            tick={{ fontSize: 11, fill: '#6b7280' }}
+            dataKey="dateLabel"
+            tick={{ fontSize: 10, fill: '#6b7280' }}
             tickLine={false}
             axisLine={{ stroke: '#e5e7eb' }}
-            interval={2}
+            interval={interval}
+            angle={data.length > 20 ? -30 : 0}
+            textAnchor={data.length > 20 ? 'end' : 'middle'}
+            height={data.length > 20 ? 60 : 30}
           />
           <YAxis
             domain={yDomain}
@@ -52,31 +82,57 @@ export function PriceLineChart({ snapshot }: PriceLineChartProps) {
             tick={{ fontSize: 11, fill: '#6b7280' }}
             tickLine={false}
             axisLine={false}
-            width={55}
+            width={60}
           />
-          <Tooltip content={<ChartTooltip />} />
-          <ReferenceLine
-            y={currentPrice}
-            stroke={product.color}
-            strokeDasharray="4 4"
-            strokeOpacity={0.5}
-            label={{
-              value: '現在',
-              position: 'right',
-              fontSize: 11,
-              fill: product.color,
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload || payload.length === 0) return null
+              return (
+                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm min-w-[180px]">
+                  <p className="font-semibold text-gray-700 mb-2">{label}</p>
+                  {payload.map((entry) => {
+                    const product = PRODUCTS.find((p) => p.id === entry.dataKey)
+                    if (!product) return null
+                    return (
+                      <div key={entry.dataKey} className="flex items-center gap-2 mb-1">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-gray-600 text-xs">{product.nameJa}:</span>
+                        <span className="font-bold text-gray-900 ml-auto">
+                          {formatPriceJPY(entry.value as number)}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
             }}
           />
-          <Line
-            type="monotone"
-            dataKey="price"
-            stroke={product.color}
-            strokeWidth={2.5}
-            dot={{ r: 3, fill: product.color, strokeWidth: 0 }}
-            activeDot={{ r: 5, fill: product.color, stroke: 'white', strokeWidth: 2 }}
-            isAnimationActive={true}
-            animationDuration={600}
-          />
+          {selectedSnapshots.length > 1 && (
+            <Legend
+              formatter={(value: string) => {
+                const product = PRODUCTS.find((p) => p.id === value)
+                return product ? product.nameJa : value
+              }}
+              wrapperStyle={{ fontSize: 12 }}
+            />
+          )}
+          {selectedSnapshots.map((snapshot) => (
+            <Line
+              key={snapshot.product.id}
+              type="monotone"
+              dataKey={snapshot.product.id}
+              name={snapshot.product.id}
+              stroke={snapshot.product.color}
+              strokeWidth={2}
+              dot={data.length <= 30 ? { r: 2.5, fill: snapshot.product.color, strokeWidth: 0 } : false}
+              activeDot={{ r: 4, fill: snapshot.product.color, stroke: 'white', strokeWidth: 2 }}
+              isAnimationActive={true}
+              animationDuration={600}
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

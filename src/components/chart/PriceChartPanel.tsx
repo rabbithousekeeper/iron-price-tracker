@@ -1,67 +1,107 @@
-import type { PriceSnapshot } from '../../types'
+import type { PriceSnapshot, PriceRecord, PeriodMode } from '../../types'
 import { formatPriceJPY } from '../../utils/formatters'
 import { ProductSelector } from './ProductSelector'
 import { PriceLineChart } from './PriceLineChart'
+import { PeriodControls } from './PeriodControls'
+import { CsvDownloadButton } from './CsvDownloadButton'
 import { TrendBadge } from '../cards/TrendBadge'
 
 interface PriceChartPanelProps {
   snapshots: PriceSnapshot[]
-  selectedSnapshot: PriceSnapshot
-  selectedProductId: string
-  onSelectProduct: (id: string) => void
+  selectedSnapshots: PriceSnapshot[]
+  selectedProductIds: string[]
+  onToggleProduct: (id: string) => void
+  periodMode: PeriodMode
+  onPeriodModeChange: (mode: PeriodMode) => void
+  startDate: string
+  endDate: string
+  onStartDateChange: (date: string) => void
+  onEndDateChange: (date: string) => void
+  chartRecords: PriceRecord[]
+  onDownloadCsv: () => void
 }
 
 export function PriceChartPanel({
   snapshots,
-  selectedSnapshot,
-  selectedProductId,
-  onSelectProduct,
+  selectedSnapshots,
+  selectedProductIds,
+  onToggleProduct,
+  periodMode,
+  onPeriodModeChange,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange,
+  chartRecords,
+  onDownloadCsv,
 }: PriceChartPanelProps) {
-  const { product, currentPrice, changeAmount, changePercent, trend, ytdMin, ytdMax } =
-    selectedSnapshot
-
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+      {/* ヘッダー：タイトル + CSVボタン */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
         <div>
           <h2 className="text-lg font-bold text-gray-800 mb-1">
             価格チャート
-            <span className="text-sm font-normal text-gray-500 ml-2">（過去13ヶ月）</span>
+            <span className="text-sm font-normal text-gray-500 ml-2">
+              （{selectedSnapshots.length}品目選択中）
+            </span>
           </h2>
-          <ProductSelector
-            snapshots={snapshots}
-            selectedProductId={selectedProductId}
-            onSelect={onSelectProduct}
-          />
         </div>
+        <CsvDownloadButton onDownload={onDownloadCsv} />
       </div>
 
-      {/* Selected product info */}
-      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mb-4 pb-4 border-b border-gray-100">
-        <h3 className="text-lg font-bold text-gray-900">{product.nameJa}</h3>
-        <span className="text-2xl font-bold tabular-nums" style={{ color: product.color }}>
-          {formatPriceJPY(currentPrice)}
-          <span className="text-sm font-normal text-gray-500">/トン</span>
-        </span>
-        <TrendBadge
-          changeAmount={changeAmount}
-          changePercent={changePercent}
-          trend={trend}
+      {/* 期間コントロール */}
+      <div className="mb-4">
+        <PeriodControls
+          periodMode={periodMode}
+          onPeriodModeChange={onPeriodModeChange}
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={onStartDateChange}
+          onEndDateChange={onEndDateChange}
         />
-        <div className="text-xs text-gray-500 ml-auto">
-          <span>年初来: </span>
-          <span className="text-price-down font-medium">{formatPriceJPY(ytdMin)}</span>
-          <span className="mx-1">─</span>
-          <span className="text-price-up font-medium">{formatPriceJPY(ytdMax)}</span>
-        </div>
       </div>
 
-      <p className="text-xs text-gray-500 mb-2">{product.description}</p>
+      {/* 品目セレクター */}
+      <div className="mb-4 pb-4 border-b border-gray-100">
+        <ProductSelector
+          snapshots={snapshots}
+          selectedProductIds={selectedProductIds}
+          onToggle={onToggleProduct}
+        />
+      </div>
 
-      <PriceLineChart snapshot={selectedSnapshot} />
+      {/* 選択中の品目情報 */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        {selectedSnapshots.map(({ product, currentPrice, changeAmount, changePercent, trend }) => (
+          <div
+            key={product.id}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 text-sm"
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              style={{ backgroundColor: product.color }}
+            />
+            <span className="font-medium text-gray-800">{product.nameJa}</span>
+            <span className="font-bold tabular-nums" style={{ color: product.color }}>
+              {formatPriceJPY(currentPrice)}
+            </span>
+            <TrendBadge
+              changeAmount={changeAmount}
+              changePercent={changePercent}
+              trend={trend}
+            />
+          </div>
+        ))}
+      </div>
+
+      <PriceLineChart
+        selectedSnapshots={selectedSnapshots}
+        chartRecords={chartRecords}
+      />
 
       <p className="text-xs text-gray-400 mt-3 text-right">
-        ※ 価格は参考値です
+        ※ 価格は参考値です。複数品目をクリックして比較できます
       </p>
     </div>
   )
