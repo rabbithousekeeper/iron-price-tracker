@@ -107,8 +107,11 @@ export function PriceTable({ sortedSnapshots, sort, onSort }: PriceTableProps) {
 
                     {/* Current price */}
                     <td className="px-4 py-3 text-right font-bold tabular-nums text-gray-900">
-                      {formatPriceJPY(currentPrice)}
-                      <span className="text-xs font-normal text-gray-400 ml-0.5">/t</span>
+                      {formatPriceJPY(currentPrice, product.unit)}
+                      {product.unit.includes('指数')
+                        ? <span className="ml-1 text-xs font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">指数</span>
+                        : <span className="text-xs font-normal text-gray-400 ml-0.5">/t</span>
+                      }
                     </td>
 
                     {/* Change amount */}
@@ -136,12 +139,12 @@ export function PriceTable({ sortedSnapshots, sort, onSort }: PriceTableProps) {
 
                     {/* YTD min */}
                     <td className="px-4 py-3 text-right tabular-nums text-price-down hidden md:table-cell">
-                      {formatPriceJPY(ytdMin)}
+                      {formatPriceJPY(ytdMin, product.unit)}
                     </td>
 
                     {/* YTD max */}
                     <td className="px-4 py-3 text-right tabular-nums text-price-up hidden md:table-cell">
-                      {formatPriceJPY(ytdMax)}
+                      {formatPriceJPY(ytdMax, product.unit)}
                     </td>
                   </tr>
                 )

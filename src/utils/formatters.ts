@@ -2,7 +2,10 @@ export function formatPrice(price: number): string {
   return price.toLocaleString('ja-JP')
 }
 
-export function formatPriceJPY(price: number): string {
+export function formatPriceJPY(price: number, unit?: string): string {
+  if (unit && unit.includes('指数')) {
+    return price.toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  }
   return `\u00a5${price.toLocaleString('ja-JP')}`
 }
 
