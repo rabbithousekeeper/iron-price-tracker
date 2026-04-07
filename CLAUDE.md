@@ -21,9 +21,10 @@
 ```
 
 ## 技術スタック
-- フロントエンド：React 18 + TypeScript + Vite
-- スタイリング：Tailwind CSS
-- グラフ：Recharts
+- バックエンド：Python + FastAPI
+- データベース：Supabase（PostgreSQL直接接続）
+- Garminデータ取得：garminconnect ライブラリ
+- デプロイ：Render（Web Service + Cron Job）
 
 ## コーディングルール
 - コメントは日本語で記載すること
