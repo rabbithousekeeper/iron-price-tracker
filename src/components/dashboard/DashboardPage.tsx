@@ -16,7 +16,9 @@ interface DashboardPageProps {
 // 日時フォーマット（日本時間 JST 表示）
 function formatDateTime(iso: string | null): string {
   if (!iso) return '未取得'
-  return new Date(iso).toLocaleString('ja-JP', {
+  // バックエンドがTZ情報なし（"2026-04-07T13:15:39.230069"）で返すためUTCとして扱う
+  const utcStr = iso.endsWith('Z') || iso.includes('+') ? iso : iso + 'Z'
+  return new Date(utcStr).toLocaleString('ja-JP', {
     timeZone: 'Asia/Tokyo',
     year: 'numeric',
     month: '2-digit',
