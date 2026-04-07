@@ -418,34 +418,19 @@ export const CATEGORY_ORDER: ProductCategory[] = [
 // データソース情報
 export const DATA_SOURCES: DataSource[] = [
   {
-    name: '日本鉄鋼連盟',
-    url: 'https://www.jisf.or.jp/',
-    description: '鉄鋼統計・市況情報',
+    name: 'EIA（米国エネルギー情報局）',
+    url: 'https://www.eia.gov/',
+    description: '原油（WTI）価格 APIデータ',
+  },
+  {
+    name: 'Yahoo Finance',
+    url: 'https://finance.yahoo.com/',
+    description: '銅・アルミニウム・亜鉛・鉄鉱石・鉛 先物価格',
   },
   {
     name: '日本鉄リサイクル工業会',
     url: 'https://www.jisri.or.jp/',
     description: '鉄スクラップ価格情報',
-  },
-  {
-    name: '東京製鐵株式会社',
-    url: 'https://www.tokyosteel.co.jp/',
-    description: '鉄スクラップ購入価格・鋼材販売価格',
-  },
-  {
-    name: '経済産業省 資源エネルギー庁',
-    url: 'https://www.enecho.meti.go.jp/',
-    description: '石油化学製品価格統計',
-  },
-  {
-    name: 'LME (London Metal Exchange)',
-    url: 'https://www.lme.com/',
-    description: '非鉄金属国際相場',
-  },
-  {
-    name: '日本特殊鋼流通協会',
-    url: 'https://www.tokusyuko.or.jp/',
-    description: '特殊鋼流通価格',
   },
   {
     name: '日本鉄源協会',
