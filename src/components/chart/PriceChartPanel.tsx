@@ -13,6 +13,8 @@ interface PriceChartPanelProps {
   onToggleProduct: (id: string) => void
   periodMode: PeriodMode
   onPeriodModeChange: (mode: PeriodMode) => void
+  fiscalMonth: number
+  onFiscalMonthChange: (month: number) => void
   startDate: string
   endDate: string
   onStartDateChange: (date: string) => void
@@ -28,6 +30,8 @@ export function PriceChartPanel({
   onToggleProduct,
   periodMode,
   onPeriodModeChange,
+  fiscalMonth,
+  onFiscalMonthChange,
   startDate,
   endDate,
   onStartDateChange,
@@ -55,6 +59,8 @@ export function PriceChartPanel({
         <PeriodControls
           periodMode={periodMode}
           onPeriodModeChange={onPeriodModeChange}
+          fiscalMonth={fiscalMonth}
+          onFiscalMonthChange={onFiscalMonthChange}
           startDate={startDate}
           endDate={endDate}
           onStartDateChange={onStartDateChange}

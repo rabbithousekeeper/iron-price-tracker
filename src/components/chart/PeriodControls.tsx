@@ -3,6 +3,8 @@ import type { PeriodMode } from '../../types'
 interface PeriodControlsProps {
   periodMode: PeriodMode
   onPeriodModeChange: (mode: PeriodMode) => void
+  fiscalMonth: number
+  onFiscalMonthChange: (month: number) => void
   startDate: string
   endDate: string
   onStartDateChange: (date: string) => void
@@ -13,11 +15,20 @@ const PERIOD_OPTIONS: { value: PeriodMode; label: string }[] = [
   { value: 'day', label: '日別' },
   { value: 'month', label: '月別' },
   { value: 'year', label: '年別' },
+  { value: 'fiscal_year', label: '年度別' },
 ]
+
+// 決算月の選択肢
+const FISCAL_MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
+  value: i + 1,
+  label: `${i + 1}月`,
+}))
 
 export function PeriodControls({
   periodMode,
   onPeriodModeChange,
+  fiscalMonth,
+  onFiscalMonthChange,
   startDate,
   endDate,
   onStartDateChange,
@@ -41,6 +52,24 @@ export function PeriodControls({
           </button>
         ))}
       </div>
+
+      {/* 年度別モード時のみ決算月セレクタを表示 */}
+      {periodMode === 'fiscal_year' && (
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="text-gray-500">決算月:</span>
+          <select
+            value={fiscalMonth}
+            onChange={(e) => onFiscalMonthChange(Number(e.target.value))}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+          >
+            {FISCAL_MONTH_OPTIONS.map(({ value, label }) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* 日付ピッカー */}
       <div className="flex items-center gap-2 text-sm">

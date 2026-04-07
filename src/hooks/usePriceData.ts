@@ -3,40 +3,68 @@ import type { PriceSnapshot, PriceRecord, TableSort, PeriodMode } from '../types
 import { PRODUCTS } from '../data/products'
 import { generatePriceHistory } from '../data/mockData'
 
+// 年度キーを計算（決算月に基づく）
+function getFiscalYearKey(dateStr: string, fiscalMonth: number): string {
+  const year = parseInt(dateStr.slice(0, 4))
+  const month = parseInt(dateStr.slice(5, 7))
+  // 決算月の翌月が年度の開始月
+  // 例：決算月3月 → 4月始まり、決算月12月 → 1月始まり
+  const fiscalStartMonth = (fiscalMonth % 12) + 1
+  const fiscalYear = month >= fiscalStartMonth ? year : year - 1
+  return `${fiscalYear}年度`
+}
+
 // 期間モードに応じてレコードを集約
 function aggregateRecords(
   records: PriceRecord[],
   periodMode: PeriodMode,
+  fiscalMonth: number = 3,
 ): PriceRecord[] {
   if (periodMode === 'day') return records
 
-  const groups = new Map<string, PriceRecord[]>()
+  // 品目ごとにグループ化してから期間で集約（複数品目が混在しても正しく処理）
+  const byProduct = new Map<string, PriceRecord[]>()
   for (const record of records) {
-    let key: string
-    if (periodMode === 'month') {
-      key = record.date.slice(0, 7) // 'YYYY-MM'
-    } else {
-      key = record.date.slice(0, 4) // 'YYYY'
-    }
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(record)
+    if (!byProduct.has(record.productId)) byProduct.set(record.productId, [])
+    byProduct.get(record.productId)!.push(record)
   }
 
-  // 各グループの最後のレコード（最新日の価格）を使用
   const aggregated: PriceRecord[] = []
-  for (const [key, recs] of groups) {
-    const last = recs[recs.length - 1]
-    let dateLabel: string
-    if (periodMode === 'month') {
-      const [y, m] = key.split('-')
-      dateLabel = `${y}年${parseInt(m)}月`
-    } else {
-      dateLabel = `${key}年`
+  for (const [, productRecords] of byProduct) {
+    const groups = new Map<string, PriceRecord[]>()
+    for (const record of productRecords) {
+      let key: string
+      if (periodMode === 'month') {
+        key = record.date.slice(0, 7) // 'YYYY-MM'
+      } else if (periodMode === 'fiscal_year') {
+        key = getFiscalYearKey(record.date, fiscalMonth)
+      } else {
+        key = record.date.slice(0, 4) // 'YYYY'
+      }
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(record)
     }
-    aggregated.push({
-      ...last,
-      dateLabel,
-    })
+
+    for (const [key, recs] of groups) {
+      const last = recs[recs.length - 1]
+      // 平均価格を計算
+      const avgPrice = Math.round(recs.reduce((sum, r) => sum + r.price, 0) / recs.length)
+      let dateLabel: string
+      if (periodMode === 'month') {
+        const [y, m] = key.split('-')
+        dateLabel = `${y}年${parseInt(m)}月`
+      } else if (periodMode === 'fiscal_year') {
+        dateLabel = key
+      } else {
+        dateLabel = `${key}年`
+      }
+      aggregated.push({
+        ...last,
+        dateLabel,
+        price: last.price,
+        averagePrice: avgPrice,
+      })
+    }
   }
   return aggregated
 }
@@ -45,6 +73,7 @@ export function usePriceData() {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([PRODUCTS[0].id])
   const [sort, setSort] = useState<TableSort>({ key: 'price', direction: 'desc' })
   const [periodMode, setPeriodMode] = useState<PeriodMode>('month')
+  const [fiscalMonth, setFiscalMonth] = useState<number>(3) // 決算月（デフォルト: 3月）
   const [startDate, setStartDate] = useState<string>('2025-04-01')
   const [endDate, setEndDate] = useState<string>('2026-04-07')
 
@@ -112,8 +141,8 @@ export function usePriceData() {
     const selected = filteredRecords.filter((r) =>
       selectedProductIds.includes(r.productId)
     )
-    return aggregateRecords(selected, periodMode)
-  }, [filteredRecords, selectedProductIds, periodMode])
+    return aggregateRecords(selected, periodMode, fiscalMonth)
+  }, [filteredRecords, selectedProductIds, periodMode, fiscalMonth])
 
   // 選択中のスナップショット
   const selectedSnapshots = useMemo(
@@ -175,10 +204,14 @@ export function usePriceData() {
   const downloadCsv = useCallback(() => {
     const today = new Date(2026, 3, 7)
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    const filename = `iron-prices-${dateStr}.csv`
+    const modeLabel = periodMode === 'day' ? '日別' : periodMode === 'month' ? '月別' : periodMode === 'fiscal_year' ? '年度別' : '年別'
+    const filename = `iron-prices-${modeLabel}-${dateStr}.csv`
 
-    // ヘッダー行
-    const headers = ['品目', '品目（英語）', 'カテゴリ', '日付', '価格', '単位']
+    // ヘッダー行（日別以外は平均価格列を追加）
+    const isAggregated = periodMode !== 'day'
+    const headers = isAggregated
+      ? ['品目', '品目（英語）', 'カテゴリ', '期間', '価格（期末）', '平均価格', '単位']
+      : ['品目', '品目（英語）', 'カテゴリ', '日付', '価格', '単位']
     const rows: string[][] = [headers]
 
     // 選択中の品目のデータを出力
@@ -188,17 +221,29 @@ export function usePriceData() {
       if (!product) continue
 
       const records = filteredRecords.filter((r) => r.productId === pid)
-      const aggregated = aggregateRecords(records, periodMode)
+      const aggregated = aggregateRecords(records, periodMode, fiscalMonth)
 
       for (const record of aggregated) {
-        rows.push([
-          product.nameJa,
-          product.nameEn,
-          product.category,
-          record.date,
-          String(record.price),
-          product.unit,
-        ])
+        if (isAggregated) {
+          rows.push([
+            product.nameJa,
+            product.nameEn,
+            product.category,
+            record.dateLabel,
+            String(record.price),
+            String(record.averagePrice ?? record.price),
+            product.unit,
+          ])
+        } else {
+          rows.push([
+            product.nameJa,
+            product.nameEn,
+            product.category,
+            record.date,
+            String(record.price),
+            product.unit,
+          ])
+        }
       }
     }
 
@@ -217,7 +262,7 @@ export function usePriceData() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  }, [selectedProductIds, filteredRecords, periodMode])
+  }, [selectedProductIds, filteredRecords, periodMode, fiscalMonth])
 
   return {
     snapshots,
@@ -230,6 +275,8 @@ export function usePriceData() {
     lastUpdated,
     periodMode,
     setPeriodMode,
+    fiscalMonth,
+    setFiscalMonth,
     startDate,
     setStartDate,
     endDate,
