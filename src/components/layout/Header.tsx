@@ -27,10 +27,10 @@ export function Header({ lastUpdated }: HeaderProps) {
             </div>
             <div>
               <h1 className="text-xl font-bold leading-tight">
-                鉄・鋼材価格トラッカー
+                価格トラッカー
               </h1>
               <p className="text-blue-200 text-sm">
-                Japan Iron &amp; Steel Price Tracker
+                Price Tracker
               </p>
             </div>
           </div>

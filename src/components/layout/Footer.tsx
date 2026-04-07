@@ -4,9 +4,9 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-white font-semibold mb-2">鉄・鋼材価格トラッカー</h3>
+            <h3 className="text-white font-semibold mb-2">価格トラッカー</h3>
             <p className="text-sm leading-relaxed">
-              日本国内の鉄鋼・非鉄金属・石油化学製品の市況価格を品目別に追跡・可視化するサービスです。
+              鉄鋼・非鉄金属・石油化学製品の市況価格を品目別に追跡・可視化するサービスです。
               スクラップ、薄板、形鋼・棒鋼、鋼管、ステンレス、石油化学、非鉄金属、特殊鋼など幅広い品目に対応しています。
             </p>
           </div>
@@ -19,7 +19,7 @@ export function Footer() {
           </div>
         </div>
         <div className="border-t border-gray-700 mt-6 pt-4 text-xs text-gray-500 text-center">
-          &copy; 2026 鉄・鋼材価格トラッカー. データは参考値であり、実際の市場価格とは異なる場合があります。
+          &copy; 2026 価格トラッカー / Price Tracker. データは参考値であり、実際の市場価格とは異なる場合があります。
         </div>
       </div>
     </footer>
