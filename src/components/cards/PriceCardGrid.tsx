@@ -10,7 +10,7 @@ interface PriceCardGridProps {
 }
 
 export function PriceCardGrid({ snapshots, selectedProductIds, onToggle }: PriceCardGridProps) {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
 
   // カテゴリごとにグループ化
   const grouped = new Map<ProductCategory, PriceSnapshot[]>()
