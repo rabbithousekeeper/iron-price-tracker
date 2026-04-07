@@ -401,7 +401,7 @@ def _parse_jisri_html(html: str) -> list[dict]:
 
     for row in rows:
         # th（日付列）を抽出
-        th_match = re.search(r"<th[^>]*>(.*?)</th>", row, re.DOTALL | re.IGNORECASE)
+        th_match = re.search(r"<th[^>]*>(.*?)</t[dh]>", row, re.DOTALL | re.IGNORECASE)
         if not th_match:
             continue
         th_text = re.sub(r"<[^>]+>", "", th_match.group(1)).strip()
