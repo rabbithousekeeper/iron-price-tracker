@@ -89,6 +89,24 @@ export async function fetchSourceStatus(): Promise<
 }
 
 /**
+ * API自動取得を実行（Yahoo Finance + EIA）
+ */
+export async function triggerAutoFetch(): Promise<any> {
+  if (!API_BASE_URL) {
+    throw new Error('API_BASE_URL is not configured')
+  }
+
+  const resp = await fetch(`${API_BASE_URL}/api/fetch/auto`, {
+    method: 'POST',
+  })
+  if (!resp.ok) {
+    throw new Error(`API error: ${resp.status}`)
+  }
+
+  return resp.json()
+}
+
+/**
  * 手動スクレイピングを実行
  */
 export async function triggerManualFetch(): Promise<{ message: string }> {

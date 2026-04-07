@@ -86,7 +86,7 @@ export function PeriodControls({
           type="date"
           value={endDate}
           min={startDate}
-          max="2026-04-07"
+          max={new Date().toISOString().slice(0, 10)}
           onChange={(e) => onEndDateChange(e.target.value)}
           className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
         />
