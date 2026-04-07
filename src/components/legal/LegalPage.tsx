@@ -35,23 +35,8 @@ export function LegalPage({ onBack }: LegalPageProps) {
 
       {/* セクション1：データソースと利用根拠 */}
       <Section number="1" title="データソースと利用根拠">
-        {/* 1-1 World Bank API */}
-        <SourceBlock title="1-1 World Bank API">
-          <dl className="space-y-1">
-            <DlRow label="対象品目" value="銅、アルミニウム、亜鉛、ニッケル、鉛、錫、鉄鉱石" />
-            <DlRow label="ライセンス" value="Creative Commons Attribution 4.0 International (CC BY 4.0)" />
-            <DlRow label="商用利用" value="可能 / 出典表示義務：あり" />
-            <DlRow label="データURL">
-              <ExtLink href="https://api.worldbank.org/v2/">https://api.worldbank.org/v2/</ExtLink>
-            </DlRow>
-          </dl>
-          <p className="text-sm text-gray-600 mt-2">
-            CC BY 4.0ライセンスは、出典を明示することを条件に、データの複製・配布・改変・商業利用を広く許諾します。
-          </p>
-        </SourceBlock>
-
-        {/* 1-2 EIA API */}
-        <SourceBlock title="1-2 EIA API（米国エネルギー情報局）">
+        {/* 1-1 EIA API */}
+        <SourceBlock title="1-1 EIA API（米国エネルギー情報局）">
           <dl className="space-y-1">
             <DlRow label="対象品目" value="原油（WTI）" />
             <DlRow label="法的位置づけ" value="米国連邦政府機関が提供する政府公開データ" />
@@ -65,32 +50,8 @@ export function LegalPage({ onBack }: LegalPageProps) {
           </p>
         </SourceBlock>
 
-        {/* 1-3 日本銀行 */}
-        <SourceBlock title="1-3 日本銀行 時系列統計データ検索サイト">
-          <dl className="space-y-1">
-            <DlRow label="対象品目" value="エチレン、プロピレン、ベンゼン（石油化学基礎製品）、電気銅、鉄筋棒鋼、H形鋼、ステンレス鋼板等（企業物価指数）" />
-            <DlRow label="提供元" value="日本銀行（Bank of Japan）" />
-            <DlRow label="法的位置づけ" value="日本銀行が公式APIとして提供する統計データ。統計データの利用は自由（日本銀行利用規約より）。出典表示義務あり。" />
-            <DlRow label="データURL">
-              <ExtLink href="https://www.stat-search.boj.or.jp/">https://www.stat-search.boj.or.jp/</ExtLink>
-            </DlRow>
-          </dl>
-        </SourceBlock>
-
-        {/* 1-4 e-Stat */}
-        <SourceBlock title="1-4 e-Stat / 資源エネルギー庁">
-          <dl className="space-y-1">
-            <DlRow label="対象品目" value="ナフサ輸入価格" />
-            <DlRow label="提供元" value="経済産業省 資源エネルギー庁" />
-            <DlRow label="法的位置づけ" value="政府統計データ（統計法に基づく基幹統計）。e-Stat利用規約に基づき、出典表示を条件として自由に利用可能。" />
-            <DlRow label="データURL">
-              <ExtLink href="https://api.e-stat.go.jp/">https://api.e-stat.go.jp/</ExtLink>
-            </DlRow>
-          </dl>
-        </SourceBlock>
-
-        {/* 1-5 日本鉄リサイクル工業会 */}
-        <SourceBlock title="1-5 一般社団法人 日本鉄リサイクル工業会">
+        {/* 1-2 日本鉄リサイクル工業会 */}
+        <SourceBlock title="1-2 一般社団法人 日本鉄リサイクル工業会">
           <dl className="space-y-1">
             <DlRow label="対象品目" value="鉄スクラップ（H2・HS・H1・シュレッダー等）流通価格" />
             <DlRow label="データURL">
@@ -104,25 +65,8 @@ export function LegalPage({ onBack }: LegalPageProps) {
           </dl>
         </SourceBlock>
 
-        {/* 1-6 東京製鐵 */}
-        <SourceBlock title="1-6 東京製鐵株式会社">
-          <dl className="space-y-1">
-            <DlRow label="対象品目" value="鉄スクラップ購入価格（特級・H2等）、鋼材販売価格（熱延コイル、冷延コイル、H形鋼、異形棒鋼、厚板等）" />
-            <DlRow label="データURL（スクラップ）">
-              <ExtLink href="https://www.tokyosteel.co.jp/scrapprice/">https://www.tokyosteel.co.jp/scrapprice/</ExtLink>
-            </DlRow>
-            <DlRow label="データURL（鋼材）">
-              <ExtLink href="https://www.tokyosteel.co.jp/salesprice/">https://www.tokyosteel.co.jp/salesprice/</ExtLink>
-            </DlRow>
-            <DlRow label="取得方法" value="HTMLスクレイピング（月1回以内）" />
-            <DlRow label="robots.txt" value="存在しない（404）＝クロール禁止の記述なし（確認済）" />
-            <DlRow label="利用規約ページ" value="存在しない（404）＝スクレイピング禁止条項なし（確認済）" />
-            <DlRow label="アクセス管理" value="月1回以内、User-Agentに識別情報を明記" />
-          </dl>
-        </SourceBlock>
-
-        {/* 1-7 日本鉄源協会 */}
-        <SourceBlock title="1-7 一般社団法人 日本鉄源協会">
+        {/* 1-3 日本鉄源協会 */}
+        <SourceBlock title="1-3 一般社団法人 日本鉄源協会">
           <dl className="space-y-1">
             <DlRow label="対象品目" value="鉄スクラップ（H2炉前価格 三地区平均、1987年度〜）" />
             <DlRow label="データURL">
@@ -133,8 +77,8 @@ export function LegalPage({ onBack }: LegalPageProps) {
           </dl>
         </SourceBlock>
 
-        {/* 1-8 Westmetall */}
-        <SourceBlock title="1-8 Westmetall">
+        {/* 1-4 Westmetall */}
+        <SourceBlock title="1-4 Westmetall">
           <dl className="space-y-1">
             <DlRow label="対象品目" value="LMEニッケル（現物）、LME錫（現物）" />
             <DlRow label="データURL">
@@ -145,8 +89,8 @@ export function LegalPage({ onBack }: LegalPageProps) {
           </dl>
         </SourceBlock>
 
-        {/* 1-9 日本銀行 企業物価指数（CGPI） */}
-        <SourceBlock title="1-9 日本銀行 企業物価指数（CGPI）">
+        {/* 1-5 日本銀行 企業物価指数（CGPI） */}
+        <SourceBlock title="1-5 日本銀行 企業物価指数（CGPI）">
           <dl className="space-y-1">
             <DlRow label="対象品目" value="特殊鋼・ステンレス（物価指数、2020年=100）" />
             <DlRow label="データURL">
@@ -158,6 +102,18 @@ export function LegalPage({ onBack }: LegalPageProps) {
           <p className="text-sm text-amber-700 font-medium mt-2">
             重要: このデータは2020年を100とした物価指数であり、円/トンの実際の取引価格ではありません。
           </p>
+        </SourceBlock>
+
+        {/* 1-6 Yahoo Finance */}
+        <SourceBlock title="1-6 Yahoo Finance">
+          <dl className="space-y-1">
+            <DlRow label="対象品目" value="銅・アルミニウム・亜鉛・鉄鉱石・鉛（先物価格）" />
+            <DlRow label="データURL">
+              <ExtLink href="https://finance.yahoo.com/">https://finance.yahoo.com/</ExtLink>
+            </DlRow>
+            <DlRow label="法的位置づけ" value="民間金融情報サービスが提供する市場価格データ" />
+            <DlRow label="利用条件" value="個人・非商用の参考目的での利用。データは参考値として表示" />
+          </dl>
         </SourceBlock>
       </Section>
 
@@ -230,12 +186,12 @@ export function LegalPage({ onBack }: LegalPageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              <AttrRow data="銅・アルミ・亜鉛・ニッケル・鉛・錫・鉄鉱石 価格" provider="World Bank Group" license="CC BY 4.0" />
               <AttrRow data="原油（WTI）価格" provider="U.S. Energy Information Administration (EIA)" license="U.S. Government Open Data" />
-              <AttrRow data="企業物価指数（エチレン・プロピレン・ベンゼン・鉄鋼・非鉄）" provider="日本銀行" license="統計データ自由利用" />
-              <AttrRow data="ナフサ輸入価格" provider="経済産業省 資源エネルギー庁（e-Stat提供）" license="政府統計データ" />
+              <AttrRow data="銅・アルミニウム・亜鉛・鉄鉱石・鉛 先物価格" provider="Yahoo Finance" license="非商用参考利用" />
               <AttrRow data="鉄スクラップ流通価格" provider="一般社団法人 日本鉄リサイクル工業会" license="一般公開データ" />
-              <AttrRow data="鉄スクラップ購入価格・鋼材販売価格" provider="東京製鐵株式会社" license="一般公開データ" />
+              <AttrRow data="H2鉄スクラップ炉前価格（三地区平均）" provider="一般社団法人 日本鉄源協会" license="一般公開データ" />
+              <AttrRow data="LMEニッケル・錫 日次価格" provider="Westmetall" license="非商用参考利用" />
+              <AttrRow data="企業物価指数（特殊鋼・ステンレス）" provider="日本銀行" license="統計データ自由利用" />
             </tbody>
           </table>
         </div>
@@ -243,12 +199,12 @@ export function LegalPage({ onBack }: LegalPageProps) {
         {/* 著作権表示文 */}
         <div className="mt-4 space-y-1 text-xs text-gray-500 bg-gray-50 rounded-lg p-4">
           <p className="font-semibold text-gray-600 mb-2">著作権表示文：</p>
-          <p>&copy; World Bank Group. Licensed under CC BY 4.0. <ExtLink href="https://www.worldbank.org/">https://www.worldbank.org/</ExtLink></p>
           <p>U.S. Energy Information Administration (EIA). Public domain. <ExtLink href="https://www.eia.gov/">https://www.eia.gov/</ExtLink></p>
-          <p>&copy; Bank of Japan. <ExtLink href="https://www.boj.or.jp/">https://www.boj.or.jp/</ExtLink></p>
-          <p>&copy; 総務省統計局 / 経済産業省 資源エネルギー庁. <ExtLink href="https://www.e-stat.go.jp/">https://www.e-stat.go.jp/</ExtLink></p>
+          <p>Yahoo Finance. <ExtLink href="https://finance.yahoo.com/">https://finance.yahoo.com/</ExtLink></p>
           <p>&copy; 一般社団法人 日本鉄リサイクル工業会. <ExtLink href="https://www.jisri.or.jp/">https://www.jisri.or.jp/</ExtLink></p>
-          <p>&copy; 東京製鐵株式会社. <ExtLink href="https://www.tokyosteel.co.jp/">https://www.tokyosteel.co.jp/</ExtLink></p>
+          <p>&copy; 一般社団法人 日本鉄源協会. <ExtLink href="http://tetsugen.or.jp/">http://tetsugen.or.jp/</ExtLink></p>
+          <p>Westmetall. <ExtLink href="https://www.westmetall.com/">https://www.westmetall.com/</ExtLink></p>
+          <p>&copy; Bank of Japan. <ExtLink href="https://www.boj.or.jp/">https://www.boj.or.jp/</ExtLink></p>
         </div>
       </Section>
 
@@ -265,12 +221,12 @@ export function LegalPage({ onBack }: LegalPageProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              <FreqRow source="World Bank API" items="銅・アルミ・亜鉛・ニッケル・鉛・錫・鉄鉱石" freq="月次" timing="毎週月曜日（自動）" />
               <FreqRow source="EIA API" items="原油（WTI）" freq="週次" timing="毎週月曜日（自動）" />
-              <FreqRow source="日本銀行 CGPI" items="エチレン・プロピレン・ベンゼン・電気銅・鉄鋼指数" freq="月次" timing="毎週月曜日（自動）" />
-              <FreqRow source="e-Stat / 資源エネルギー庁" items="ナフサ輸入価格" freq="月次" timing="毎週月曜日（自動）" />
+              <FreqRow source="Yahoo Finance" items="銅・アルミニウム・亜鉛・鉄鉱石・鉛" freq="月次" timing="毎週月曜日（自動）" />
               <FreqRow source="日本鉄リサイクル工業会" items="鉄スクラップ流通価格" freq="月次" timing="手動更新ボタン" />
-              <FreqRow source="東京製鐵" items="鉄スクラップ購入価格・鋼材販売価格" freq="月次" timing="手動更新ボタン" />
+              <FreqRow source="日本鉄源協会" items="H2鉄スクラップ炉前価格" freq="月次" timing="手動更新ボタン" />
+              <FreqRow source="Westmetall" items="LMEニッケル・錫" freq="日次" timing="手動更新ボタン" />
+              <FreqRow source="日本銀行 CGPI" items="特殊鋼・ステンレス指数" freq="月次" timing="手動更新ボタン" />
             </tbody>
           </table>
         </div>
