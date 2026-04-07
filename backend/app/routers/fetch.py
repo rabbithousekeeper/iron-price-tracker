@@ -12,6 +12,7 @@ from app.services.meti import fetch_meti_prices
 from app.services.manual_scraper import (
     fetch_jisf_prices,
     fetch_jisri_prices,
+    fetch_tokyo_steel_prices,
     fetch_manual_all,
 )
 
@@ -70,6 +71,13 @@ async def trigger_fetch_jisri(db: Session = Depends(get_db)):
     """日本鉄リサイクル工業会から鉄スクラップ価格を手動取得"""
     count = await fetch_jisri_prices(db)
     return {"status": "success", "source": "jisri", "records_saved": count}
+
+
+@router.post("/manual/tokyo-steel")
+async def trigger_fetch_tokyo_steel(db: Session = Depends(get_db)):
+    """東京製鐵から鉄スクラップ購入価格・鋼材販売価格を手動取得"""
+    count = await fetch_tokyo_steel_prices(db)
+    return {"status": "success", "source": "tokyo_steel", "records_saved": count}
 
 
 @router.post("/worldbank")

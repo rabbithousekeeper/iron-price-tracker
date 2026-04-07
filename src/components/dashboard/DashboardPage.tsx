@@ -6,7 +6,14 @@ import { PriceCardGrid } from '../cards/PriceCardGrid'
 import { PriceChartPanel } from '../chart/PriceChartPanel'
 import { PriceTable } from '../table/PriceTable'
 
-export function DashboardPage() {
+// ページ種別
+type Page = 'dashboard' | 'legal'
+
+interface DashboardPageProps {
+  onNavigate?: (page: Page) => void
+}
+
+export function DashboardPage({ onNavigate }: DashboardPageProps) {
   const {
     snapshots,
     selectedProductIds,
@@ -37,7 +44,7 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header lastUpdated={lastUpdated} />
+      <Header lastUpdated={lastUpdated} onNavigate={onNavigate} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* API状態バー */}
@@ -160,7 +167,7 @@ export function DashboardPage() {
         </section>
       </main>
 
-      <Footer />
+      <Footer onNavigate={onNavigate} />
     </div>
   )
 }

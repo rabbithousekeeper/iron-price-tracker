@@ -417,6 +417,11 @@ export const DATA_SOURCES: DataSource[] = [
     description: '鉄スクラップ価格情報',
   },
   {
+    name: '東京製鐵株式会社',
+    url: 'https://www.tokyosteel.co.jp/',
+    description: '鉄スクラップ購入価格・鋼材販売価格',
+  },
+  {
     name: '経済産業省 資源エネルギー庁',
     url: 'https://www.enecho.meti.go.jp/',
     description: '石油化学製品価格統計',

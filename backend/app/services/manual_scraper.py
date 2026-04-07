@@ -1,6 +1,6 @@
 """手動スクレイピングサービス
 
-日本鉄鋼連盟（JISF）と日本鉄リサイクル工業会（JISRI）から
+日本鉄鋼連盟（JISF）、日本鉄リサイクル工業会（JISRI）、東京製鐵（Tokyo Steel）から
 鉄鋼・鉄スクラップ価格データをスクレイピングで取得する。
 
 POST /api/fetch/manual エンドポイントから呼び出される手動取得専用。
@@ -25,6 +25,11 @@ JISF_STATS_URL = f"{JISF_BASE_URL}/data/iandsteel/"
 # 日本鉄リサイクル工業会（JISRI）の市況ページ
 JISRI_BASE_URL = "https://www.jisri.or.jp"
 JISRI_MARKET_URL = f"{JISRI_BASE_URL}/kakaku/kakaku.html"
+
+# 東京製鐵株式会社の公表価格ページ
+TOKYO_STEEL_BASE_URL = "https://www.tokyosteel.co.jp"
+TOKYO_STEEL_SCRAP_URL = f"{TOKYO_STEEL_BASE_URL}/scrapprice/"
+TOKYO_STEEL_SALES_URL = f"{TOKYO_STEEL_BASE_URL}/salesprice/"
 
 # スクレイピング対象の鉄鋼製品マッピング
 JISF_PRODUCTS = {
@@ -76,6 +81,44 @@ JISRI_PRODUCTS = {
         "product_id": "shredder_scrap",
         "keywords": ["シュレッダー", "シュレッダーA"],
         "description": "シュレッダー鉄スクラップ",
+    },
+}
+
+# 東京製鐵 鉄スクラップ購入価格マッピング
+TOKYO_STEEL_SCRAP_PRODUCTS = {
+    "h2_scrap": {
+        "product_id": "h2_scrap",
+        "keywords": ["H2", "Ｈ２", "新断ち", "新断"],
+        "description": "東京製鐵 H2鉄スクラップ購入価格",
+    },
+    "hs_scrap": {
+        "product_id": "hs_scrap",
+        "keywords": ["HS", "ＨＳ", "プレス"],
+        "description": "東京製鐵 HS鉄スクラップ購入価格",
+    },
+}
+
+# 東京製鐵 鋼材販売価格マッピング
+TOKYO_STEEL_PRODUCT_PRODUCTS = {
+    "hot_rolled_coil": {
+        "product_id": "hot_rolled_coil",
+        "keywords": ["熱延", "熱延鋼板", "ホットコイル"],
+        "description": "東京製鐵 熱延鋼板販売価格",
+    },
+    "h_beam": {
+        "product_id": "h_beam",
+        "keywords": ["H形鋼", "H鋼", "Ｈ形鋼"],
+        "description": "東京製鐵 H形鋼販売価格",
+    },
+    "rebar": {
+        "product_id": "rebar",
+        "keywords": ["異形棒鋼", "鉄筋", "D16", "D13"],
+        "description": "東京製鐵 異形棒鋼販売価格",
+    },
+    "steel_plate": {
+        "product_id": "steel_plate",
+        "keywords": ["厚板", "厚鋼板"],
+        "description": "東京製鐵 厚板販売価格",
     },
 }
 
@@ -182,6 +225,75 @@ async def fetch_jisri_prices(db: Session) -> int:
     return total_saved
 
 
+async def fetch_tokyo_steel_prices(db: Session) -> int:
+    """東京製鐵から鉄スクラップ購入価格・鋼材販売価格をスクレイピング
+
+    東京製鐵の公表価格ページからHTML解析で価格データを取得する。
+    robots.txt不存在（禁止なし）、月1回以内のアクセス。
+    """
+    total_saved = 0
+    errors: list[str] = []
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0; +https://github.com/rabbithousekeeper/iron-price-tracker)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "ja,en;q=0.9",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
+        # スクラップ購入価格ページ
+        try:
+            resp = await client.get(TOKYO_STEEL_SCRAP_URL)
+            resp.raise_for_status()
+            content = _decode_html(resp.content)
+            records = _parse_tokyo_steel_html(content, TOKYO_STEEL_SCRAP_PRODUCTS)
+            if records:
+                total_saved += _upsert_records(db, records)
+                logger.info(f"東京製鐵（スクラップ）: {len(records)}件取得")
+            else:
+                logger.warning("東京製鐵（スクラップ）: 解析可能なデータが見つかりませんでした")
+        except httpx.HTTPStatusError as e:
+            msg = f"東京製鐵（スクラップ）HTTPエラー: {e.response.status_code}"
+            logger.error(msg)
+            errors.append(msg)
+        except Exception as e:
+            msg = f"東京製鐵（スクラップ）取得エラー: {str(e)}"
+            logger.error(msg)
+            errors.append(msg)
+
+        # 鋼材販売価格ページ
+        try:
+            resp = await client.get(TOKYO_STEEL_SALES_URL)
+            resp.raise_for_status()
+            content = _decode_html(resp.content)
+            records = _parse_tokyo_steel_html(content, TOKYO_STEEL_PRODUCT_PRODUCTS)
+            if records:
+                total_saved += _upsert_records(db, records)
+                logger.info(f"東京製鐵（鋼材）: {len(records)}件取得")
+            else:
+                logger.warning("東京製鐵（鋼材）: 解析可能なデータが見つかりませんでした")
+        except httpx.HTTPStatusError as e:
+            msg = f"東京製鐵（鋼材）HTTPエラー: {e.response.status_code}"
+            logger.error(msg)
+            errors.append(msg)
+        except Exception as e:
+            msg = f"東京製鐵（鋼材）取得エラー: {str(e)}"
+            logger.error(msg)
+            errors.append(msg)
+
+    # 取得ログを記録
+    log = FetchLog(
+        source="tokyo_steel",
+        status="success" if not errors else "error",
+        message="; ".join(errors) if errors else f"{total_saved}件取得",
+        records_count=total_saved,
+    )
+    db.add(log)
+    db.commit()
+
+    return total_saved
+
+
 async def fetch_manual_all(db: Session) -> dict:
     """全手動ソースからデータを取得（手動エンドポイント用）"""
     results = {}
@@ -201,6 +313,14 @@ async def fetch_manual_all(db: Session) -> dict:
     except Exception as e:
         logger.error(f"日本鉄リサイクル工業会取得エラー: {e}")
         results["jisri"] = {"status": "error", "message": str(e)}
+
+    # 東京製鐵
+    try:
+        count = await fetch_tokyo_steel_prices(db)
+        results["tokyo_steel"] = {"status": "success", "records": count}
+    except Exception as e:
+        logger.error(f"東京製鐵取得エラー: {e}")
+        results["tokyo_steel"] = {"status": "error", "message": str(e)}
 
     return results
 
@@ -281,6 +401,40 @@ def _parse_jisri_html(html: str) -> list[dict]:
                         "price_date": date.today(),
                         "price": price,
                         "source": "jisri",
+                        "created_at": datetime.utcnow(),
+                    })
+                break
+
+    return records
+
+
+def _parse_tokyo_steel_html(html: str, products: dict) -> list[dict]:
+    """東京製鐵のHTMLから価格データを抽出
+
+    テーブル構造からキーワードマッチで価格行を検出し、数値データを抽出する。
+    """
+    records = []
+
+    # テーブル行を抽出（<tr>タグ）
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.DOTALL | re.IGNORECASE)
+
+    for row in rows:
+        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, re.DOTALL | re.IGNORECASE)
+        if not cells:
+            continue
+
+        cell_texts = [re.sub(r"<[^>]+>", "", cell).strip() for cell in cells]
+        row_text = " ".join(cell_texts)
+
+        for key, product in products.items():
+            if any(kw in row_text for kw in product["keywords"]):
+                price = _extract_price_from_cells(cell_texts)
+                if price is not None:
+                    records.append({
+                        "product_id": product["product_id"],
+                        "price_date": date.today(),
+                        "price": price,
+                        "source": "tokyo_steel",
                         "created_at": datetime.utcnow(),
                     })
                 break
