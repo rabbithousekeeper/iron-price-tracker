@@ -3,7 +3,7 @@ export function formatPrice(price: number): string {
 }
 
 export function formatPriceJPY(price: number): string {
-  return `¥${price.toLocaleString('ja-JP')}`
+  return `\u00a5${price.toLocaleString('ja-JP')}`
 }
 
 export function formatChange(amount: number): string {
@@ -26,7 +26,12 @@ export function formatDate(date: Date): string {
 
 export function formatYAxisTick(value: number): string {
   if (value >= 10_000) {
-    return `${(value / 10_000).toFixed(0)}万`
+    const man = value / 10_000
+    return man === Math.floor(man) ? `${man}万` : `${man.toFixed(1)}万`
   }
-  return `${(value / 1_000).toFixed(0)}千`
+  if (value >= 1_000) {
+    const sen = value / 1_000
+    return sen === Math.floor(sen) ? `${sen}千` : `${sen.toFixed(1)}千`
+  }
+  return `${value}`
 }

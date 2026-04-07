@@ -1,31 +1,48 @@
-import type { PriceSnapshot } from '../../types'
+import type { PriceSnapshot, ProductCategory } from '../../types'
+import { CATEGORY_LABELS, CATEGORY_ORDER } from '../../data/products'
 import { PriceCard } from './PriceCard'
 
 interface PriceCardGridProps {
   snapshots: PriceSnapshot[]
-  selectedProductId: string
-  onSelect: (id: string) => void
+  selectedProductIds: string[]
+  onToggle: (id: string) => void
 }
 
-export function PriceCardGrid({ snapshots, selectedProductId, onSelect }: PriceCardGridProps) {
+export function PriceCardGrid({ snapshots, selectedProductIds, onToggle }: PriceCardGridProps) {
+  // カテゴリごとにグループ化
+  const grouped = new Map<ProductCategory, PriceSnapshot[]>()
+  for (const snapshot of snapshots) {
+    const cat = snapshot.product.category
+    if (!grouped.has(cat)) grouped.set(cat, [])
+    grouped.get(cat)!.push(snapshot)
+  }
+
   return (
     <div>
       <h2 className="text-lg font-bold text-gray-800 mb-4">
         現在の価格
         <span className="text-sm font-normal text-gray-500 ml-2">（前月比）</span>
       </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {snapshots.map((snapshot) => (
-          <PriceCard
-            key={snapshot.product.id}
-            snapshot={snapshot}
-            isSelected={snapshot.product.id === selectedProductId}
-            onClick={() => onSelect(snapshot.product.id)}
-          />
-        ))}
-      </div>
+      {CATEGORY_ORDER.filter((cat) => grouped.has(cat)).map((cat) => (
+        <div key={cat} className="mb-6">
+          <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2">
+            <span className="inline-block w-1 h-4 bg-brand-500 rounded-full" />
+            {CATEGORY_LABELS[cat]}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {grouped.get(cat)!.map((snapshot) => (
+              <PriceCard
+                key={snapshot.product.id}
+                snapshot={snapshot}
+                isSelected={selectedProductIds.includes(snapshot.product.id)}
+                onClick={() => onToggle(snapshot.product.id)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
       <p className="text-xs text-gray-400 mt-3">
-        ※ カードをクリックするとチャートに詳細が表示されます
+        ※ カードをクリックしてチャートに表示する品目を選択できます（複数選択可）
       </p>
     </div>
   )
