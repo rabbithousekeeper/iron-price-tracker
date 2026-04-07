@@ -1,8 +1,10 @@
-"""World Bank Commodity Prices API からデータを取得するサービス
+"""Yahoo Finance API からコモディティ価格データを取得するサービス
 
-対象商品: 銅、アルミニウム、亜鉛、ニッケル、鉛、錫、鉄鉱石
-API: https://api.worldbank.org/v2/en/indicator/{CODE}?format=json&source=89
-source=89 = Commodity Markets ("Pink Sheet") データ
+対象商品: 銅、アルミニウム、亜鉛、鉛、鉄鉱石
+（ニッケル・錫はYahoo Financeに先物シンボルがないため対象外）
+API: https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?interval=1mo&range=20y
+
+※ファイル名は他ファイルからのimport互換性のためworldbank.pyを維持
 """
 
 import logging
@@ -16,128 +18,131 @@ from app.models.price import CommodityPrice, FetchLog
 
 logger = logging.getLogger(__name__)
 
-# World Bank Commodity Markets (source=89) 指標コードマッピング
-WORLDBANK_COMMODITIES: dict[str, dict] = {
-    "copper": {
+# USD/lb → USD/t 換算係数（1トン = 2204.62ポンド）
+LB_TO_TONNE = 2204.62
+
+# Yahoo Finance シンボル → プロダクトIDのマッピング（動作確認済みのみ）
+YAHOO_COMMODITIES: list[dict] = [
+    {
+        "symbol": "HG=F",
         "product_id": "copper",
-        "indicator_code": "PCOPP",
-        "description": "銅（LME, $/mt）",
+        "description": "銅先物（COMEX, USD/lb）",
+        "lb_to_tonne": True,
     },
-    "aluminum": {
+    {
+        "symbol": "ALI=F",
         "product_id": "aluminum",
-        "indicator_code": "PALUM",
-        "description": "アルミニウム（LME, $/mt）",
+        "description": "アルミニウム先物（COMEX, USD/lb）",
+        "lb_to_tonne": True,
     },
-    "zinc": {
+    {
+        "symbol": "ZNC=F",
         "product_id": "zinc",
-        "indicator_code": "PZINC",
-        "description": "亜鉛（LME, $/mt）",
+        "description": "亜鉛先物（USD/lb）",
+        "lb_to_tonne": True,
     },
-    "nickel": {
-        "product_id": "nickel",
-        "indicator_code": "PNICK",
-        "description": "ニッケル（LME, $/mt）",
-    },
-    "lead": {
+    {
+        "symbol": "LL=F",
         "product_id": "lead",
-        "indicator_code": "PLEAD",
-        "description": "鉛（LME, $/mt）",
+        "description": "鉛先物（USD/lb）",
+        "lb_to_tonne": True,
     },
-    "tin": {
-        "product_id": "tin",
-        "indicator_code": "PTIN",
-        "description": "錫（LME, $/mt）",
-    },
-    "iron_ore": {
+    {
+        "symbol": "TIO=F",
         "product_id": "iron_ore",
-        "indicator_code": "PIORECR",
-        "description": "鉄鉱石（62% Fe, CFR China, $/dmt）",
+        "description": "鉄鉱石先物（SGX, USD/t）",
+        "lb_to_tonne": False,
     },
-}
+]
 
-
-def _parse_wb_date(date_str: str) -> date | None:
-    """World Bank APIの日付文字列をdateオブジェクトに変換
-
-    source=89のdate形式:
-    - 月次: "2024M06" → 2024-06-01
-    - 年次: "2024" → 2024-12-31
-    """
-    try:
-        if "M" in date_str:
-            # 月次データ: "2024M06"
-            year_str, month_str = date_str.split("M")
-            return date(int(year_str), int(month_str), 1)
-        elif len(date_str) == 4:
-            # 年次データ: "2024"
-            return date(int(date_str), 12, 31)
-    except (ValueError, TypeError, IndexError):
-        pass
-    return None
+# Yahoo Finance Chart APIベースURL
+YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart"
 
 
 async def fetch_worldbank_prices(
     db: Session,
     start_year: int | None = None,
 ) -> int:
-    """World Bank Commodity Markets APIから非鉄金属・鉄鉱石の価格を取得してDBに保存
+    """Yahoo Finance APIからコモディティ価格を取得してDBに保存
 
-    source=89（Commodity Markets / Pink Sheet）を使用。
-    エンドポイント: /v2/en/indicator/{CODE}?format=json&source=89
+    関数名は既存のimport互換性のため維持。
+    start_yearが現在から10年以上前の場合はrange=20y（全取得）、
+    それ以外はrange=2y（直近更新）を使用。
     """
     if start_year is None:
         start_year = date.today().year - 2
 
+    # start_yearに応じてrange指定を決定
+    years_back = date.today().year - start_year
+    data_range = "20y" if years_back >= 10 else "2y"
+
     total_saved = 0
     errors: list[str] = []
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        for key, commodity in WORLDBANK_COMMODITIES.items():
-            try:
-                indicator_code = commodity["indicator_code"]
-                url = (
-                    f"https://api.worldbank.org/v2/en/indicator/{indicator_code}"
-                    f"?format=json&source=89"
-                    f"&date={start_year}:{date.today().year}"
-                    f"&per_page=300"
-                )
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0)",
+    }
 
-                resp = await client.get(url)
+    async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+        for commodity in YAHOO_COMMODITIES:
+            symbol = commodity["symbol"]
+            product_id = commodity["product_id"]
+
+            try:
+                url = f"{YAHOO_CHART_URL}/{symbol}"
+                params = {
+                    "interval": "1mo",
+                    "range": data_range,
+                }
+
+                resp = await client.get(url, params=params)
                 resp.raise_for_status()
                 data = resp.json()
 
-                # レスポンス: [pagination_meta, [data_entries]] の2要素配列
-                if not isinstance(data, list) or len(data) < 2:
-                    logger.warning(f"World Bank {key}: 予期しないレスポンス形式")
+                # レスポンス解析
+                chart = data.get("chart", {})
+                error = chart.get("error")
+                if error:
+                    msg = f"Yahoo Finance {symbol}: APIエラー: {error}"
+                    logger.error(msg)
+                    errors.append(msg)
                     continue
 
-                entries = data[1]
-                if not entries:
-                    logger.warning(f"World Bank {key}: データエントリなし")
+                results = chart.get("result")
+                if not results:
+                    logger.warning(f"Yahoo Finance {symbol}: resultなし")
                     continue
 
-                # 最初のエントリをログに出力（デバッグ用）
-                logger.debug(f"World Bank {key} サンプル: {entries[0]}")
+                result = results[0]
+                timestamps = result.get("timestamp")
+                quotes = result.get("indicators", {}).get("quote", [])
+
+                if not timestamps or not quotes:
+                    logger.warning(f"Yahoo Finance {symbol}: timestamp/quoteなし")
+                    continue
+
+                close_prices = quotes[0].get("close", [])
 
                 records_to_upsert = []
-                for entry in entries:
-                    value = entry.get("value")
-                    date_str = entry.get("date")
-
-                    # valueがNone（欠損値）のエントリはスキップ
-                    if value is None or date_str is None:
+                for i, ts in enumerate(timestamps):
+                    # 終値がnullのデータポイントはスキップ
+                    if i >= len(close_prices) or close_prices[i] is None:
                         continue
 
-                    price_date = _parse_wb_date(str(date_str))
-                    if price_date is None:
-                        logger.debug(f"World Bank {key}: 日付パース失敗: {date_str}")
-                        continue
+                    price = close_prices[i]
+
+                    # USD/lb → USD/t 換算
+                    if commodity["lb_to_tonne"]:
+                        price = price * LB_TO_TONNE
+
+                    # Unixタイムスタンプ → date
+                    price_date = date.fromtimestamp(ts)
 
                     records_to_upsert.append({
-                        "product_id": commodity["product_id"],
+                        "product_id": product_id,
                         "price_date": price_date,
-                        "price": float(value),
-                        "source": "worldbank",
+                        "price": round(price, 2),
+                        "source": "yahoo_finance",
                         "created_at": datetime.utcnow(),
                     })
 
@@ -151,17 +156,17 @@ async def fetch_worldbank_prices(
                     db.execute(stmt)
                     db.commit()
                     total_saved += len(records_to_upsert)
-                    logger.info(f"World Bank {key}: {len(records_to_upsert)}件保存")
+                    logger.info(f"Yahoo Finance {symbol} ({product_id}): {len(records_to_upsert)}件保存")
                 else:
-                    logger.warning(f"World Bank {key}: 有効なレコードなし（{len(entries)}件中）")
+                    logger.warning(f"Yahoo Finance {symbol}: 有効なレコードなし")
 
             except Exception as e:
-                logger.error(f"World Bank {key} 取得エラー: {e}")
-                errors.append(f"{key}: {str(e)}")
+                logger.error(f"Yahoo Finance {symbol} 取得エラー: {e}")
+                errors.append(f"{symbol}: {str(e)}")
 
     # 取得ログを記録
     log = FetchLog(
-        source="worldbank",
+        source="yahoo_finance",
         status="success" if not errors else "partial_error",
         message="; ".join(errors) if errors else None,
         records_count=total_saved,
