@@ -450,9 +450,15 @@ async def fetch_boj_cgpi_prices(db: Session) -> int:
                     entries = meta.get("RESULTSET", [])
 
                     if entries:
-                        # 月次データ(M)を優先
-                        monthly = [e for e in entries if e.get("FREQUENCY", "") == "M"]
-                        entry = monthly[0] if monthly else entries[0]
+                        # SERIES_CODEが空のエントリ（DB全体のメタ情報）をスキップ
+                        # 月次データ(M)かつSERIES_CODEありを優先
+                        monthly = [e for e in entries if e.get("SERIES_CODE") and e.get("FREQUENCY", "") == "M"]
+                        if not monthly:
+                            # 月次でなくてもSERIES_CODEがあるものを使う
+                            monthly = [e for e in entries if e.get("SERIES_CODE")]
+                        if not monthly:
+                            continue
+                        entry = monthly[0]
                         series_code = entry.get("SERIES_CODE")
                         code_name = entry.get("NAME_OF_TIME_SERIES_J", keyword)
                         logger.info(f"日銀CGPI {target['description']}: コード={series_code} ({code_name})")
