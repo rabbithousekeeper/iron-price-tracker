@@ -1,14 +1,14 @@
 /**
  * バックエンドAPI クライアント
  *
- * 環境変数 VITE_API_BASE_URL が設定されている場合は実APIにアクセスし、
+ * 環境変数 VITE_API_URL が設定されている場合は実APIにアクセスし、
  * 未設定の場合はモックデータを使用する
  */
 
 import type { PriceRecord } from '../types'
 
 // 環境変数でAPI URLを制御
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined
+const API_BASE_URL = import.meta.env.VITE_API_URL as string | undefined
 
 /**
  * 実データAPIが有効かどうかを判定
@@ -31,7 +31,7 @@ export async function fetchPrices(params: {
     throw new Error('API_BASE_URL is not configured')
   }
 
-  const url = new URL(`${API_BASE_URL}/api/prices/`)
+  const url = new URL(`${API_BASE_URL}/api/prices`)
   if (params.productId) url.searchParams.set('product_id', params.productId)
   if (params.startDate) url.searchParams.set('start_date', params.startDate)
   if (params.endDate) url.searchParams.set('end_date', params.endDate)
@@ -86,4 +86,22 @@ export async function fetchSourceStatus(): Promise<
 
   const data = await resp.json()
   return data.sources
+}
+
+/**
+ * 手動スクレイピングを実行
+ */
+export async function triggerManualFetch(): Promise<{ message: string }> {
+  if (!API_BASE_URL) {
+    throw new Error('API_BASE_URL is not configured')
+  }
+
+  const resp = await fetch(`${API_BASE_URL}/api/fetch/manual`, {
+    method: 'POST',
+  })
+  if (!resp.ok) {
+    throw new Error(`API error: ${resp.status} ${resp.statusText}`)
+  }
+
+  return resp.json()
 }

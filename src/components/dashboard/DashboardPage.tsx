@@ -26,6 +26,13 @@ export function DashboardPage() {
     setEndDate,
     chartRecords,
     downloadCsv,
+    isUsingApi,
+    apiLoading,
+    apiError,
+    refreshData,
+    runManualFetch,
+    manualFetching,
+    manualFetchResult,
   } = usePriceData()
 
   return (
@@ -33,6 +40,82 @@ export function DashboardPage() {
       <Header lastUpdated={lastUpdated} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* API状態バー */}
+        {isUsingApi && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-2 text-sm">
+              {apiLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span className="text-gray-600">データを読み込み中...</span>
+                </>
+              ) : apiError ? (
+                <>
+                  <span className="w-2 h-2 bg-red-500 rounded-full" />
+                  <span className="text-red-600">API接続エラー: {apiError}</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 bg-green-500 rounded-full" />
+                  <span className="text-gray-600">APIから実データを取得中</span>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {/* データ再取得ボタン */}
+              <button
+                onClick={refreshData}
+                disabled={apiLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <svg className={`w-4 h-4 ${apiLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                再読み込み
+              </button>
+              {/* 手動スクレイピングボタン */}
+              <button
+                onClick={runManualFetch}
+                disabled={manualFetching || apiLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-brand-700 rounded-md hover:bg-brand-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {manualFetching ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    スクレイピング中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    データを更新
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 手動スクレイピング結果メッセージ */}
+        {manualFetchResult && (
+          <div
+            className={`rounded-lg px-4 py-3 text-sm ${
+              manualFetchResult.success
+                ? 'bg-green-50 text-green-800 border border-green-200'
+                : 'bg-red-50 text-red-800 border border-red-200'
+            }`}
+          >
+            {manualFetchResult.message}
+          </div>
+        )}
+
         {/* 価格カード */}
         <section aria-label="現在の価格">
           <PriceCardGrid
