@@ -3,7 +3,7 @@
 import logging
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -51,16 +51,23 @@ async def trigger_fetch_all(db: Session = Depends(get_db)):
 
 
 @router.post("/auto")
-async def trigger_fetch_auto(db: Session = Depends(get_db)):
-    """World Bank + EIA APIからデータを自動取得
+async def trigger_fetch_auto(
+    db: Session = Depends(get_db),
+    force_full: bool = Query(False, description="trueの場合、DBの件数に関わらず2005年から全件取得する"),
+):
+    """Yahoo Finance + EIA APIからデータを自動取得
 
-    DBのレコード件数が0の場合は2005年から現在まで全取得、
-    1件以上ある場合は直近1年のみ更新する。
+    force_full=true: 2005年から全件取得（range=20y相当）
+    force_full=false: DBのレコード件数が0なら2005年〜全取得、1件以上なら直近1年のみ更新
     """
     results = {}
     record_count = db.query(func.count(CommodityPrice.id)).scalar() or 0
 
-    if record_count == 0:
+    if force_full:
+        # 強制全取得
+        start_year = 2005
+        logger.info(f"force_full=true: {start_year}年から全データを取得します（DB: {record_count}件）")
+    elif record_count == 0:
         # DB空: 2005年から全取得
         start_year = 2005
         logger.info(f"DBレコード0件: {start_year}年から全データを取得します")
@@ -88,7 +95,7 @@ async def trigger_fetch_auto(db: Session = Depends(get_db)):
     return {
         "status": "completed",
         "db_records_before": record_count,
-        "fetch_mode": "full" if record_count == 0 else "incremental",
+        "fetch_mode": "full" if force_full or record_count == 0 else "incremental",
         "start_year": start_year,
         "results": results,
     }
