@@ -5,7 +5,7 @@
 services:
   # バックエンドAPI（FastAPI + Supabase）
   - type: web
-    name: price-tracker-api
+    name: garmin-health-tracker
     runtime: python
     region: oregon
     plan: free
@@ -13,16 +13,52 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: SUPABASE_DB_URL
-        sync: false  # Renderダッシュボードから手動設定（Supabase PostgreSQL接続URL）
-      - key: EIA_API_KEY
+      - key: GARMIN_EMAIL
         sync: false  # Renderダッシュボードから手動設定
-      - key: USE_REAL_DATA
-        value: "true"
-      - key: CORS_ORIGINS
-        value: https://your-frontend-url.onrender.com
+      - key: GARMIN_PASSWORD
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false  # Supabase PostgreSQL接続URL
+      - key: API_KEY
+        sync: false  # API認証キー
       - key: FETCH_INTERVAL_HOURS
-        value: "168"
+        value: "6"
+      - key: ACTIVITY_LIMIT
+        value: "200"
+      - key: SYNC_DAYS_BACK
+        value: "30"
+      - key: TZ
+        value: Asia/Tokyo
       - key: PYTHON_VERSION
         value: "3.12.0"
     healthCheckPath: /health
+
+  # 定期同期ジョブ（6時間ごと）
+  - type: cron
+    name: garmin-sync-job
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    schedule: "0 */6 * * *"
+    command: python sync_job.py
+    envVars:
+      - key: GARMIN_EMAIL
+        sync: false
+      - key: GARMIN_PASSWORD
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: FETCH_INTERVAL_HOURS
+        value: "6"
+      - key: ACTIVITY_LIMIT
+        value: "200"
+      - key: SYNC_DAYS_BACK
+        value: "30"
+      - key: TZ
+        value: Asia/Tokyo
+      - key: PYTHON_VERSION
+        value: "3.12.0"
