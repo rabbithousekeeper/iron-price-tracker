@@ -446,18 +446,15 @@ async def fetch_boj_cgpi_prices(db: Session) -> int:
                     resp.raise_for_status()
                     meta = resp.json()
 
-                    # レスポンスから系列コードを抽出
-                    entries = meta.get("data", {}).get("metadata", [])
-                    if not entries:
-                        # 別のレスポンス構造に対応
-                        entries = meta.get("metadata", [])
+                    # レスポンス構造: {"RESULTSET": [{SERIES_CODE, NAME_OF_TIME_SERIES_J, FREQUENCY, ...}, ...]}
+                    entries = meta.get("RESULTSET", [])
 
                     if entries:
                         # 月次データ(M)を優先
-                        monthly = [e for e in entries if e.get("frequency", "") == "M"]
+                        monthly = [e for e in entries if e.get("FREQUENCY", "") == "M"]
                         entry = monthly[0] if monthly else entries[0]
-                        series_code = entry.get("series_code") or entry.get("code")
-                        code_name = entry.get("name", keyword)
+                        series_code = entry.get("SERIES_CODE")
+                        code_name = entry.get("NAME_OF_TIME_SERIES_J", keyword)
                         logger.info(f"日銀CGPI {target['description']}: コード={series_code} ({code_name})")
                         break
 
@@ -487,18 +484,19 @@ async def fetch_boj_cgpi_prices(db: Session) -> int:
                 resp.raise_for_status()
                 result = resp.json()
 
-                # レスポンスからデータポイントを抽出
-                series_list = result.get("data", {}).get("series", [])
-                if not series_list:
-                    series_list = result.get("series", [])
+                # レスポンス構造: {"RESULTSET": [{SERIES_CODE, SURVEY_DATES, VALUES, ...}, ...]}
+                series_list = result.get("RESULTSET", [])
 
                 records_to_upsert = []
                 for series in series_list:
-                    points = series.get("points", [])
-                    for point in points:
-                        value = point.get("value")
-                        survey_date = point.get("survey_date", "")
+                    survey_dates = series.get("SURVEY_DATES", [])
+                    values = series.get("VALUES", [])
 
+                    for i, survey_date in enumerate(survey_dates):
+                        if i >= len(values):
+                            break
+
+                        value = values[i]
                         if value is None or value == "":
                             continue
 
@@ -508,10 +506,11 @@ async def fetch_boj_cgpi_prices(db: Session) -> int:
                             continue
 
                         # 日付パース: "202401" → date(2024, 1, 1)
+                        survey_date_str = str(survey_date)
                         try:
-                            if len(survey_date) >= 6:
-                                year = int(survey_date[:4])
-                                month = int(survey_date[4:6])
+                            if len(survey_date_str) >= 6:
+                                year = int(survey_date_str[:4])
+                                month = int(survey_date_str[4:6])
                                 price_date = date(year, month, 1)
                             else:
                                 continue
