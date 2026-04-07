@@ -377,35 +377,95 @@ def _parse_jisf_html(html: str) -> list[dict]:
 def _parse_jisri_html(html: str) -> list[dict]:
     """日本鉄リサイクル工業会のHTMLから鉄スクラップ価格を抽出
 
-    市況ページのテーブル構造からスクラップ品種別の価格を検出する。
+    HTML構造（https://www.jisri.or.jp/kakaku）:
+    - テーブル: table.kakaku-tbl01
+    - データ行: tr > th（日付 "2026年3月"） + td×8（価格列）
+    - td[7]（最後の列）= 関東・中部・関西三地区平均
+    - 価格形式: "48,500～50,000" → 平均値、"45,000中心" → その値
+    - product_id: "iron_scrap"
     """
     records = []
 
-    # テーブル行を抽出
-    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.DOTALL | re.IGNORECASE)
+    # kakaku-tbl01テーブル内の行を抽出
+    table_match = re.search(
+        r'<table[^>]*class="[^"]*kakaku-tbl01[^"]*"[^>]*>(.*?)</table>',
+        html, re.DOTALL | re.IGNORECASE,
+    )
+    if not table_match:
+        # フォールバック: テーブル全体から探す
+        table_html = html
+    else:
+        table_html = table_match.group(1)
+
+    rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL | re.IGNORECASE)
 
     for row in rows:
-        cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, re.DOTALL | re.IGNORECASE)
-        if not cells:
+        # th（日付列）を抽出
+        th_match = re.search(r"<th[^>]*>(.*?)</th>", row, re.DOTALL | re.IGNORECASE)
+        if not th_match:
+            continue
+        th_text = re.sub(r"<[^>]+>", "", th_match.group(1)).strip()
+
+        # "YYYY年M月" 形式の日付をパース
+        date_match = re.search(r"(\d{4})\s*年\s*(\d{1,2})\s*月", th_text)
+        if not date_match:
+            continue
+        price_date = date(int(date_match.group(1)), int(date_match.group(2)), 1)
+
+        # td列を抽出
+        tds = re.findall(r"<td[^>]*>(.*?)</td>", row, re.DOTALL | re.IGNORECASE)
+        if len(tds) < 8:
             continue
 
-        cell_texts = [re.sub(r"<[^>]+>", "", cell).strip() for cell in cells]
-        row_text = " ".join(cell_texts)
-
-        for key, product in JISRI_PRODUCTS.items():
-            if any(kw in row_text for kw in product["keywords"]):
-                price = _extract_price_from_cells(cell_texts)
-                if price is not None:
-                    records.append({
-                        "product_id": product["product_id"],
-                        "price_date": date.today(),
-                        "price": price,
-                        "source": "jisri",
-                        "created_at": datetime.utcnow(),
-                    })
-                break
+        # 最後の列（td[7]）= 三地区平均価格
+        price_text = re.sub(r"<[^>]+>", "", tds[7]).strip()
+        price = _parse_jisri_price(price_text)
+        if price is not None:
+            records.append({
+                "product_id": "iron_scrap",
+                "price_date": price_date,
+                "price": price,
+                "source": "jisri",
+                "created_at": datetime.utcnow(),
+            })
 
     return records
+
+
+def _parse_jisri_price(text: str) -> float | None:
+    """JISRIの価格テキストを数値に変換
+
+    "48,500～50,000" → (48500 + 50000) / 2 = 49250.0
+    "45,000中心" → 45000.0
+    "48,500" → 48500.0
+    """
+    if not text:
+        return None
+
+    # カンマ・全角スペース除去
+    cleaned = text.replace(",", "").replace("，", "").replace("\u3000", "").replace(" ", "")
+
+    # "～" で範囲指定されている場合は平均値
+    if "～" in cleaned or "~" in cleaned:
+        parts = re.split(r"[～~]", cleaned)
+        nums = []
+        for part in parts:
+            m = re.search(r"(\d+\.?\d*)", part)
+            if m:
+                nums.append(float(m.group(1)))
+        if len(nums) == 2:
+            return (nums[0] + nums[1]) / 2
+        elif len(nums) == 1:
+            return nums[0]
+        return None
+
+    # "中心" が付いている場合は数値部分を取得
+    cleaned = cleaned.replace("中心", "")
+
+    m = re.search(r"(\d+\.?\d*)", cleaned)
+    if m:
+        return float(m.group(1))
+    return None
 
 
 def _parse_tokyo_steel_html(html: str, products: dict) -> list[dict]:

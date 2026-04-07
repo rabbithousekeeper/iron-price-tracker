@@ -76,7 +76,7 @@ export function PeriodControls({
         <input
           type="date"
           value={startDate}
-          min="2024-04-01"
+          min="2006-01-01"
           max={endDate}
           onChange={(e) => onStartDateChange(e.target.value)}
           className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
