@@ -447,4 +447,19 @@ export const DATA_SOURCES: DataSource[] = [
     url: 'https://www.tokusyuko.or.jp/',
     description: '特殊鋼流通価格',
   },
+  {
+    name: '日本鉄源協会',
+    url: 'http://tetsugen.or.jp/',
+    description: 'H2鉄スクラップ炉前価格（三地区平均）1987年〜',
+  },
+  {
+    name: 'Westmetall',
+    url: 'https://www.westmetall.com/',
+    description: 'LMEニッケル・錫 日次価格（2008年〜）',
+  },
+  {
+    name: '日本銀行 企業物価指数（CGPI）',
+    url: 'https://www.boj.or.jp/statistics/pi/cgpi_2020/index.htm',
+    description: '特殊鋼・ステンレス価格指数（2020年=100）',
+  },
 ]
