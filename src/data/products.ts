@@ -211,6 +211,17 @@ export const PRODUCTS: Product[] = [
 
   // === 石油化学系 ===
   {
+    id: 'crude_oil',
+    nameJa: '原油（WTI）',
+    nameEn: 'Crude Oil (WTI)',
+    category: 'petrochemical',
+    unit: 'USD/bbl',
+    basePrice: 70,
+    volatility: 0.10,
+    color: '#9333ea',
+    description: 'WTI原油スポット価格',
+  },
+  {
     id: 'naphtha',
     nameJa: 'ナフサ',
     nameEn: 'Naphtha',
