@@ -17,6 +17,7 @@ from app.services.manual_scraper import (
     fetch_jisri_prices,
     fetch_tokyo_steel_prices,
     fetch_tetsugen_prices,
+    fetch_westmetall_prices,
     fetch_manual_all,
 )
 
@@ -140,6 +141,13 @@ async def trigger_fetch_tokyo_steel(db: Session = Depends(get_db)):
     """東京製鐵から鉄スクラップ購入価格・鋼材販売価格を手動取得"""
     count = await fetch_tokyo_steel_prices(db)
     return {"status": "success", "source": "tokyo_steel", "records_saved": count}
+
+
+@router.post("/manual/westmetall")
+async def trigger_fetch_westmetall(db: Session = Depends(get_db)):
+    """WestmetallからLMEニッケル・錫の日次価格を手動取得"""
+    count = await fetch_westmetall_prices(db)
+    return {"status": "success", "source": "westmetall", "records_saved": count}
 
 
 @router.post("/worldbank")

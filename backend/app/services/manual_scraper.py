@@ -34,6 +34,10 @@ TETSUGEN_URL = "http://tetsugen.or.jp/kiso/2sukurap.htm"
 TOKYO_STEEL_SCRAP_URL = f"{TOKYO_STEEL_BASE_URL}/scrapprice/"
 TOKYO_STEEL_SALES_URL = f"{TOKYO_STEEL_BASE_URL}/salesprice/"
 
+# Westmetall LME価格ページ
+WESTMETALL_NI_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Ni_cash"
+WESTMETALL_SN_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Sn_cash"
+
 # スクレイピング対象の鉄鋼製品マッピング
 JISF_PRODUCTS = {
     "hot_rolled_coil": {
@@ -349,6 +353,55 @@ async def fetch_tetsugen_prices(db: Session) -> int:
     return total_saved
 
 
+async def fetch_westmetall_prices(db: Session) -> int:
+    """WestmetallからLMEニッケル・錫の日次価格をスクレイピング"""
+    total_saved = 0
+    errors: list[str] = []
+
+    targets = [
+        {"url": WESTMETALL_NI_URL, "product_id": "nickel", "label": "ニッケル"},
+        {"url": WESTMETALL_SN_URL, "product_id": "tin", "label": "錫"},
+    ]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en,ja;q=0.9",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
+        for target in targets:
+            try:
+                resp = await client.get(target["url"])
+                resp.raise_for_status()
+                content = _decode_html(resp.content)
+                records = _parse_westmetall_html(content, target["product_id"])
+                if records:
+                    total_saved += _upsert_records(db, records)
+                    logger.info(f"Westmetall {target['label']}: {len(records)}件取得")
+                else:
+                    logger.warning(f"Westmetall {target['label']}: 解析可能なデータが見つかりませんでした")
+            except httpx.HTTPStatusError as e:
+                msg = f"Westmetall {target['label']} HTTPエラー: {e.response.status_code}"
+                logger.error(msg)
+                errors.append(msg)
+            except Exception as e:
+                msg = f"Westmetall {target['label']} 取得エラー: {str(e)}"
+                logger.error(msg)
+                errors.append(msg)
+
+    log = FetchLog(
+        source="westmetall",
+        status="success" if not errors else "error",
+        message="; ".join(errors) if errors else f"{total_saved}件取得",
+        records_count=total_saved,
+    )
+    db.add(log)
+    db.commit()
+
+    return total_saved
+
+
 async def fetch_manual_all(db: Session) -> dict:
     """全手動ソースからデータを取得（手動エンドポイント用）"""
     results = {}
@@ -384,6 +437,14 @@ async def fetch_manual_all(db: Session) -> dict:
     except Exception as e:
         logger.error(f"日本鉄源協会取得エラー: {e}")
         results["tetsugen"] = {"status": "error", "message": str(e)}
+
+    # Westmetall（LMEニッケル・錫）
+    try:
+        count = await fetch_westmetall_prices(db)
+        results["westmetall"] = {"status": "success", "records": count}
+    except Exception as e:
+        logger.error(f"Westmetall取得エラー: {e}")
+        results["westmetall"] = {"status": "error", "message": str(e)}
 
     return results
 
@@ -650,6 +711,64 @@ def _parse_tetsugen_price(text: str) -> float | None:
     if m:
         return float(m.group(1))
     return None
+
+
+def _parse_westmetall_html(html: str, product_id: str) -> list[dict]:
+    """WestmetallのHTMLからLME日次価格を抽出
+
+    テーブル19個（年別）、各行: td[0]=日付("02. April 2026"), td[1]=Cash価格(USD/t)
+    """
+    records = []
+
+    month_map = {
+        "january": 1, "february": 2, "march": 3, "april": 4,
+        "may": 5, "june": 6, "july": 7, "august": 8,
+        "september": 9, "october": 10, "november": 11, "december": 12,
+    }
+
+    tables = re.findall(r"<table[^>]*>(.*?)</table>", html, re.DOTALL | re.IGNORECASE)
+    for table_html in tables:
+        rows = re.findall(r"<tr[^>]*>(.*?)</tr>", table_html, re.DOTALL | re.IGNORECASE)
+        for row in rows:
+            tds = re.findall(r"<td[^>]*>(.*?)</td>", row, re.DOTALL | re.IGNORECASE)
+            if len(tds) < 2:
+                continue
+
+            date_text = re.sub(r"<[^>]+>", "", tds[0]).strip()
+            price_text = re.sub(r"<[^>]+>", "", tds[1]).strip()
+
+            date_match = re.match(r"(\d{1,2})\.\s*(\w+)\s+(\d{4})", date_text)
+            if not date_match:
+                continue
+
+            day = int(date_match.group(1))
+            month = month_map.get(date_match.group(2).lower())
+            year = int(date_match.group(3))
+            if month is None:
+                continue
+
+            try:
+                price_date = date(year, month, day)
+            except ValueError:
+                continue
+
+            price_cleaned = price_text.replace(",", "").strip()
+            if not price_cleaned:
+                continue
+            try:
+                price = float(price_cleaned)
+            except ValueError:
+                continue
+
+            records.append({
+                "product_id": product_id,
+                "price_date": price_date,
+                "price": price,
+                "source": "westmetall",
+                "created_at": datetime.utcnow(),
+            })
+
+    return records
 
 
 def _extract_price_from_cells(cells: list[str]) -> float | None:
