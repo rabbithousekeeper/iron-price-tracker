@@ -48,9 +48,13 @@ export function PriceCard({ snapshot, onClick, isSelected }: PriceCardProps) {
       {/* Current price */}
       <div className="mb-2">
         <span className="text-2xl font-bold text-gray-900 tabular-nums">
-          {formatPriceJPY(currentPrice)}
+          {formatPriceJPY(currentPrice, product.unit)}
         </span>
-        <span className="text-xs text-gray-500 ml-1">/トン</span>
+        {product.unit.includes('指数') ? (
+          <span className="ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">指数</span>
+        ) : (
+          <span className="text-xs text-gray-500 ml-1">/トン</span>
+        )}
       </div>
 
       {/* Change badge */}
@@ -66,8 +70,8 @@ export function PriceCard({ snapshot, onClick, isSelected }: PriceCardProps) {
       {/* YTD range bar */}
       <div className="mt-3">
         <div className="flex justify-between text-xs text-gray-400 mb-1">
-          <span>年初来安値 {formatPriceJPY(ytdMin)}</span>
-          <span>{formatPriceJPY(ytdMax)} 高値</span>
+          <span>年初来安値 {formatPriceJPY(ytdMin, product.unit)}</span>
+          <span>{formatPriceJPY(ytdMax, product.unit)} 高値</span>
         </div>
         <div className="relative h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div

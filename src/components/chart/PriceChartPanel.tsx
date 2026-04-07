@@ -105,7 +105,7 @@ export function PriceChartPanel({
             />
             <span className="font-medium text-gray-800">{product.nameJa}</span>
             <span className="font-bold tabular-nums" style={{ color: product.color }}>
-              {formatPriceJPY(currentPrice)}
+              {formatPriceJPY(currentPrice, product.unit)}
             </span>
             <TrendBadge
               changeAmount={changeAmount}

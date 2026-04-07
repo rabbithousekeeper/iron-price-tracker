@@ -188,14 +188,14 @@ export const PRODUCTS: Product[] = [
   // === ステンレス ===
   {
     id: 'stainless_sheet',
-    nameJa: 'ステンレス板（SUS304）',
-    nameEn: 'Stainless Steel Sheet SUS304',
+    nameJa: 'ステンレス鋼（企業物価指数）',
+    nameEn: 'Stainless Steel (CGPI)',
     category: 'stainless',
-    unit: '円/トン',
-    basePrice: 550_000,
+    unit: '指数（2020年基準=100）',
+    basePrice: 100,
     volatility: 0.06,
     color: '#ec4899',
-    description: 'SUS304冷延板（2B仕上げ）市中価格',
+    description: '日銀企業物価指数 ステンレス鋼（2020年=100）',
   },
   {
     id: 'stainless_430',
@@ -348,14 +348,14 @@ export const PRODUCTS: Product[] = [
   // === 特殊鋼 ===
   {
     id: 'tool_steel',
-    nameJa: '工具鋼',
-    nameEn: 'Tool Steel',
+    nameJa: '特殊鋼（企業物価指数）',
+    nameEn: 'Special Steel (CGPI)',
     category: 'special_steel',
-    unit: '円/kg',
-    basePrice: 800,
+    unit: '指数（2020年基準=100）',
+    basePrice: 100,
     volatility: 0.04,
     color: '#be123c',
-    description: '合金工具鋼（SKD11相当）市中価格',
+    description: '日銀企業物価指数 特殊鋼（2020年=100）',
   },
   {
     id: 'spring_steel',

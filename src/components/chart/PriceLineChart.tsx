@@ -102,7 +102,7 @@ export function PriceLineChart({ selectedSnapshots, chartRecords }: PriceLineCha
                         />
                         <span className="text-gray-600 text-xs">{product.nameJa}:</span>
                         <span className="font-bold text-gray-900 ml-auto">
-                          {formatPriceJPY(entry.value as number)}
+                          {formatPriceJPY(entry.value as number, product.unit)}
                         </span>
                       </div>
                     )
