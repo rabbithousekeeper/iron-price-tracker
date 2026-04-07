@@ -484,13 +484,17 @@ async def fetch_boj_cgpi_prices(db: Session) -> int:
                 resp.raise_for_status()
                 result = resp.json()
 
-                # レスポンス構造: {"RESULTSET": [{SERIES_CODE, SURVEY_DATES, VALUES, ...}, ...]}
+                # レスポンス構造: {"RESULTSET": [{SERIES_CODE, VALUES: {SURVEY_DATES: [...], VALUES: [...]}, ...}]}
                 series_list = result.get("RESULTSET", [])
 
                 records_to_upsert = []
                 for series in series_list:
-                    survey_dates = series.get("SURVEY_DATES", [])
-                    values = series.get("VALUES", [])
+                    # VALUES はオブジェクト（その中に SURVEY_DATES と VALUES がネスト）
+                    values_obj = series.get("VALUES", {})
+                    if not isinstance(values_obj, dict):
+                        continue
+                    survey_dates = values_obj.get("SURVEY_DATES", [])
+                    values = values_obj.get("VALUES", [])
 
                     for i, survey_date in enumerate(survey_dates):
                         if i >= len(values):
