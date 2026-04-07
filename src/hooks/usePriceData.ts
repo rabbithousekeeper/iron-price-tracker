@@ -1,7 +1,15 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { PriceSnapshot, PriceRecord, TableSort, PeriodMode } from '../types'
 import { PRODUCTS } from '../data/products'
-import { isApiEnabled, fetchPrices, triggerManualFetch } from '../api/client'
+import { isApiEnabled, fetchPrices, fetchSourceStatus, triggerManualFetch, triggerAutoFetch } from '../api/client'
+
+// 今日の日付
+const today = new Date()
+const todayStr = today.toISOString().slice(0, 10)
+// 10年前
+const tenYearsAgo = new Date(today)
+tenYearsAgo.setFullYear(today.getFullYear() - 10)
+const tenYearsAgoStr = tenYearsAgo.toISOString().slice(0, 10)
 
 // 年度キーを計算（決算月に基づく）
 function getFiscalYearKey(dateStr: string, fiscalMonth: number): string {
@@ -74,8 +82,8 @@ export function usePriceData() {
   const [sort, setSort] = useState<TableSort>({ key: 'price', direction: 'desc' })
   const [periodMode, setPeriodMode] = useState<PeriodMode>('month')
   const [fiscalMonth, setFiscalMonth] = useState<number>(3) // 決算月（デフォルト: 3月）
-  const [startDate, setStartDate] = useState<string>('2025-04-01')
-  const [endDate, setEndDate] = useState<string>('2026-04-07')
+  const [startDate, setStartDate] = useState<string>(tenYearsAgoStr)
+  const [endDate, setEndDate] = useState<string>(todayStr)
 
   // API利用時のデータ格納用state
   const [apiRecords, setApiRecords] = useState<PriceRecord[] | null>(null)
@@ -84,8 +92,15 @@ export function usePriceData() {
   const [fetchVersion, setFetchVersion] = useState(0) // データ再取得用トリガー
   const [manualFetching, setManualFetching] = useState(false)
   const [manualFetchResult, setManualFetchResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [sourceStatus, setSourceStatus] = useState<Array<{ source: string; lastFetched: string | null }>>([])
 
   const useApi = isApiEnabled()
+
+  // 初回マウント時にデータソースのステータスを取得
+  useEffect(() => {
+    if (!useApi) return
+    fetchSourceStatus().then((s) => setSourceStatus(s)).catch(() => {})
+  }, [useApi])
 
   // API有効時: バックエンドからデータ取得
   useEffect(() => {
@@ -140,6 +155,33 @@ export function usePriceData() {
       setManualFetching(false)
     }
   }, [])
+
+  // API更新（Yahoo Finance + EIA）実行
+  const runApiFetch = useCallback(async () => {
+    setApiLoading(true)
+    try {
+      await triggerAutoFetch()
+    } catch (e) {
+      console.error(e)
+    }
+    setFetchVersion((v) => v + 1)
+    // sourceStatusも更新
+    fetchSourceStatus().then((s) => setSourceStatus(s)).catch(() => {})
+  }, [])
+
+  // API最終取得日時（eiaとyahoo_financeの最新値）
+  const apiLastFetched = useMemo(() => {
+    const sources = sourceStatus.filter((s) => s.source === 'eia' || s.source === 'yahoo_finance')
+    const dates = sources.map((s) => s.lastFetched).filter((d): d is string => d !== null)
+    if (dates.length === 0) return null
+    return dates.sort().reverse()[0]
+  }, [sourceStatus])
+
+  // スクレイピング最終実行日時（jisriの最新値）
+  const scrapeLastFetched = useMemo(() => {
+    const jisri = sourceStatus.find((s) => s.source === 'jisri')
+    return jisri?.lastFetched ?? null
+  }, [sourceStatus])
 
   // データソース: APIデータのみ（モックデータは使用しない）
   const allRecords = apiRecords ?? []
@@ -265,12 +307,12 @@ export function usePriceData() {
     return sorted
   }, [snapshots, sort])
 
-  const lastUpdated = useMemo(() => new Date(2026, 3, 7), []) // 2026年4月7日
+  const lastUpdated = useMemo(() => new Date(), [])
 
   // CSVダウンロード
   const downloadCsv = useCallback(() => {
-    const today = new Date(2026, 3, 7)
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const now = new Date()
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const modeLabel = periodMode === 'day' ? '日別' : periodMode === 'month' ? '月別' : periodMode === 'fiscal_year' ? '年度別' : '年別'
     const filename = `prices-${modeLabel}-${dateStr}.csv`
 
@@ -362,5 +404,10 @@ export function usePriceData() {
     runManualFetch,
     manualFetching,
     manualFetchResult,
+    // データソース状態
+    sourceStatus,
+    apiLastFetched,
+    scrapeLastFetched,
+    runApiFetch,
   }
 }

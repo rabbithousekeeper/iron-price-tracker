@@ -13,6 +13,13 @@ interface DashboardPageProps {
   onNavigate?: (page: Page) => void
 }
 
+// 日時フォーマット（日本時間表示）
+function formatDateTime(iso: string | null): string {
+  if (!iso) return '未取得'
+  const d = new Date(iso)
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 export function DashboardPage({ onNavigate }: DashboardPageProps) {
   const {
     snapshots,
@@ -41,6 +48,9 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     runManualFetch,
     manualFetching,
     manualFetchResult,
+    apiLastFetched,
+    scrapeLastFetched,
+    runApiFetch,
   } = usePriceData()
 
   return (
@@ -51,40 +61,52 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
         {/* API状態バー */}
         {isUsingApi && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white rounded-lg border border-gray-200 px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex flex-col gap-1 text-sm">
               {apiLoading ? (
-                <>
+                <div className="flex items-center gap-2">
                   <svg className="animate-spin h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                   <span className="text-gray-600">データを読み込み中...</span>
-                </>
+                </div>
               ) : apiError ? (
-                <>
+                <div className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-red-500 rounded-full" />
                   <span className="text-red-600">API接続エラー: {apiError}</span>
-                </>
+                </div>
               ) : (
                 <>
-                  <span className="w-2 h-2 bg-green-500 rounded-full" />
-                  <span className="text-gray-600">APIから実データを取得中</span>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full" />
+                    <span className="text-gray-600">📡 API最終取得: {formatDateTime(apiLastFetched)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-transparent rounded-full" />
+                    <span className="text-gray-600">🔍 スクレイピング最終実行: {formatDateTime(scrapeLastFetched)}</span>
+                  </div>
                 </>
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* データ再取得ボタン */}
+              {/* 再読み込みボタン */}
               <button
                 onClick={refreshData}
                 disabled={apiLoading}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                <svg className={`w-4 h-4 ${apiLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                再読み込み
+                🔄 再読み込み
               </button>
-              {/* 手動スクレイピングボタン */}
+              {/* API更新ボタン */}
+              <button
+                onClick={runApiFetch}
+                disabled={apiLoading}
+                title="EIA・Yahoo Financeから最新データを取得"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                📡 API更新
+              </button>
+              {/* スクレイピング実行ボタン */}
               <button
                 onClick={runManualFetch}
                 disabled={manualFetching || apiLoading}
@@ -99,12 +121,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
                     スクレイピング中...
                   </>
                 ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    データを更新
-                  </>
+                  '🔍 スクレイピング実行'
                 )}
               </button>
             </div>
