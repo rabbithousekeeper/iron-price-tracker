@@ -6,13 +6,11 @@
 POST /api/fetch/manual エンドポイントから呼び出される手動取得専用。
 """
 
-import io
 import logging
 import re
 from datetime import date, datetime
 
 import httpx
-import openpyxl
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -39,9 +37,6 @@ TOKYO_STEEL_SALES_URL = f"{TOKYO_STEEL_BASE_URL}/salesprice/"
 # Westmetall LME価格ページ
 WESTMETALL_NI_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Ni_cash"
 WESTMETALL_SN_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Sn_cash"
-
-# 日本銀行 企業物価指数（CGPI）リリースページ
-BOJ_CGPI_INDEX_URL = "https://www.boj.or.jp/statistics/pi/cgpi_release/"
 
 # スクレイピング対象の鉄鋼製品マッピング
 JISF_PRODUCTS = {
@@ -408,64 +403,141 @@ async def fetch_westmetall_prices(db: Session) -> int:
 
 
 async def fetch_boj_cgpi_prices(db: Session) -> int:
-    """日本銀行 企業物価指数（CGPI）のExcelファイルから特殊鋼・ステンレス指数を取得"""
+    """日本銀行 企業物価指数（CGPI）を時系列統計API経由で取得
+
+    API: https://www.stat-search.boj.or.jp/api/v1/
+    DB: PR01（企業物価指数）
+
+    手順:
+    1. getMetadata APIで品目キーワード検索 → 系列コード特定
+    2. getDataCode APIで月次指数データ取得
+    """
     total_saved = 0
     errors: list[str] = []
 
-    target_items = {
-        "特殊鋼棒鋼": "tool_steel",
-        "ステンレス鋼板": "stainless_sheet",
-    }
+    # 検索キーワード → product_id マッピング
+    # 複数キーワードで検索し、最初にヒットしたものを使用
+    target_searches = [
+        {
+            "product_id": "tool_steel",
+            "keywords": ["特殊鋼熱間圧延鋼材", "特殊鋼棒鋼", "特殊鋼小棒", "特殊鋼"],
+            "description": "特殊鋼関連指数",
+        },
+        {
+            "product_id": "stainless_sheet",
+            "keywords": ["ステンレス鋼冷間仕上鋼材", "ステンレス鋼板", "ステンレス鋼"],
+            "description": "ステンレス鋼関連指数",
+        },
+    ]
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0)",
-        "Accept": "text/html,application/xhtml+xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Accept-Language": "ja,en;q=0.9",
-    }
+    boj_api_base = "https://www.stat-search.boj.or.jp/api/v1"
 
-    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=headers) as client:
-        try:
-            resp = await client.get(BOJ_CGPI_INDEX_URL)
-            resp.raise_for_status()
-            index_html = _decode_html(resp.content)
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        for target in target_searches:
+            series_code = None
 
-            xlsx_match = re.search(r'href="([^"]*cgpi\d+\.xlsx)"', index_html, re.IGNORECASE)
-            if not xlsx_match:
-                msg = "日銀CGPI: Excelファイルリンクが見つかりません"
+            # ステップ1: メタデータ検索で系列コードを特定
+            for keyword in target["keywords"]:
+                try:
+                    resp = await client.get(
+                        f"{boj_api_base}/getMetadata",
+                        params={"db": "PR01", "lang": "jp", "format": "json", "searchWord": keyword},
+                    )
+                    resp.raise_for_status()
+                    meta = resp.json()
+
+                    # レスポンスから系列コードを抽出
+                    entries = meta.get("data", {}).get("metadata", [])
+                    if not entries:
+                        # 別のレスポンス構造に対応
+                        entries = meta.get("metadata", [])
+
+                    if entries:
+                        # 月次データ(M)を優先
+                        monthly = [e for e in entries if e.get("frequency", "") == "M"]
+                        entry = monthly[0] if monthly else entries[0]
+                        series_code = entry.get("series_code") or entry.get("code")
+                        code_name = entry.get("name", keyword)
+                        logger.info(f"日銀CGPI {target['description']}: コード={series_code} ({code_name})")
+                        break
+
+                except Exception as e:
+                    logger.debug(f"日銀CGPI メタデータ検索失敗 ({keyword}): {e}")
+                    continue
+
+            if not series_code:
+                msg = f"日銀CGPI: {target['description']}の系列コードが見つかりません"
                 logger.warning(msg)
                 errors.append(msg)
-            else:
-                xlsx_path = xlsx_match.group(1)
-                if xlsx_path.startswith("http"):
-                    xlsx_url = xlsx_path
-                elif xlsx_path.startswith("/"):
-                    xlsx_url = f"https://www.boj.or.jp{xlsx_path}"
-                else:
-                    xlsx_url = f"{BOJ_CGPI_INDEX_URL}{xlsx_path}"
+                continue
 
-                logger.info(f"日銀CGPI Excel URL: {xlsx_url}")
-                resp = await client.get(xlsx_url)
+            # ステップ2: データ取得
+            try:
+                resp = await client.get(
+                    f"{boj_api_base}/getDataCode",
+                    params={
+                        "db": "PR01",
+                        "code": series_code,
+                        "format": "json",
+                        "lang": "jp",
+                        "startDate": "202001",
+                        "endDate": date.today().strftime("%Y%m"),
+                    },
+                )
                 resp.raise_for_status()
+                result = resp.json()
 
-                wb = openpyxl.load_workbook(io.BytesIO(resp.content), read_only=True, data_only=True)
-                records = _parse_boj_cgpi_excel(wb, target_items)
-                wb.close()
+                # レスポンスからデータポイントを抽出
+                series_list = result.get("data", {}).get("series", [])
+                if not series_list:
+                    series_list = result.get("series", [])
 
-                if records:
-                    total_saved += _upsert_records(db, records)
-                    logger.info(f"日銀CGPI: {len(records)}件取得")
+                records_to_upsert = []
+                for series in series_list:
+                    points = series.get("points", [])
+                    for point in points:
+                        value = point.get("value")
+                        survey_date = point.get("survey_date", "")
+
+                        if value is None or value == "":
+                            continue
+
+                        try:
+                            price = float(value)
+                        except (ValueError, TypeError):
+                            continue
+
+                        # 日付パース: "202401" → date(2024, 1, 1)
+                        try:
+                            if len(survey_date) >= 6:
+                                year = int(survey_date[:4])
+                                month = int(survey_date[4:6])
+                                price_date = date(year, month, 1)
+                            else:
+                                continue
+                        except (ValueError, IndexError):
+                            continue
+
+                        records_to_upsert.append({
+                            "product_id": target["product_id"],
+                            "price_date": price_date,
+                            "price": price,
+                            "source": "boj_cgpi",
+                            "created_at": datetime.utcnow(),
+                        })
+
+                if records_to_upsert:
+                    total_saved += _upsert_records(db, records_to_upsert)
+                    logger.info(f"日銀CGPI {target['description']}: {len(records_to_upsert)}件保存")
                 else:
-                    logger.warning("日銀CGPI: 対象品目のデータが見つかりませんでした")
+                    logger.warning(f"日銀CGPI {target['description']}: 有効なデータポイントなし")
 
-        except httpx.HTTPStatusError as e:
-            msg = f"日銀CGPI HTTPエラー: {e.response.status_code}"
-            logger.error(msg)
-            errors.append(msg)
-        except Exception as e:
-            msg = f"日銀CGPI取得エラー: {str(e)}"
-            logger.error(msg)
-            errors.append(msg)
+            except Exception as e:
+                msg = f"日銀CGPI {target['description']} データ取得エラー: {str(e)}"
+                logger.error(msg)
+                errors.append(msg)
 
+    # 取得ログを記録
     log = FetchLog(
         source="boj_cgpi",
         status="success" if not errors else "error",
@@ -475,71 +547,6 @@ async def fetch_boj_cgpi_prices(db: Session) -> int:
     db.add(log)
     db.commit()
     return total_saved
-
-
-def _parse_boj_cgpi_excel(wb: openpyxl.Workbook, target_items: dict[str, str]) -> list[dict]:
-    """日銀CGPIのExcelから対象品目の指数値を抽出"""
-    records = []
-    for sheet in wb.sheetnames:
-        ws = wb[sheet]
-        rows = list(ws.iter_rows(values_only=True))
-        if not rows:
-            continue
-        for row_idx, row in enumerate(rows):
-            if not row:
-                continue
-            for col_idx, cell_val in enumerate(row):
-                if cell_val is None:
-                    continue
-                cell_str = str(cell_val).strip()
-                for keyword, product_id in target_items.items():
-                    if keyword not in cell_str:
-                        continue
-                    for data_col in range(col_idx + 1, len(row)):
-                        val = row[data_col]
-                        if val is None:
-                            continue
-                        try:
-                            price = float(val)
-                        except (ValueError, TypeError):
-                            continue
-                        price_date = _find_date_in_header(rows, row_idx, data_col)
-                        if price_date is None:
-                            continue
-                        records.append({
-                            "product_id": product_id,
-                            "price_date": price_date,
-                            "price": price,
-                            "source": "boj_cgpi",
-                            "created_at": datetime.utcnow(),
-                        })
-    return records
-
-
-def _find_date_in_header(rows: list, current_row: int, col: int) -> date | None:
-    """ヘッダー行から日付情報を探す"""
-    for r in range(current_row - 1, max(current_row - 10, -1), -1):
-        if r < 0 or r >= len(rows):
-            continue
-        row = rows[r]
-        if col >= len(row):
-            continue
-        val = row[col]
-        if val is None:
-            continue
-        val_str = str(val).strip()
-        m = re.match(r"(\d{4})[/\-年](\d{1,2})", val_str)
-        if m:
-            try:
-                return date(int(m.group(1)), int(m.group(2)), 1)
-            except ValueError:
-                continue
-        if hasattr(val, 'year') and hasattr(val, 'month'):
-            try:
-                return date(val.year, val.month, 1)
-            except (ValueError, AttributeError):
-                continue
-    return None
 
 
 async def fetch_manual_all(db: Session) -> dict:
