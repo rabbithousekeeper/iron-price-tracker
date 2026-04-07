@@ -32,20 +32,14 @@ YAHOO_COMMODITIES: list[dict] = [
     {
         "symbol": "ALI=F",
         "product_id": "aluminum",
-        "description": "アルミニウム先物（COMEX, USD/lb）",
-        "lb_to_tonne": True,
+        "description": "アルミニウム先物（LME, USD/t）",
+        "lb_to_tonne": False,
     },
     {
         "symbol": "ZNC=F",
         "product_id": "zinc",
-        "description": "亜鉛先物（USD/lb）",
-        "lb_to_tonne": True,
-    },
-    {
-        "symbol": "LL=F",
-        "product_id": "lead",
-        "description": "鉛先物（USD/lb）",
-        "lb_to_tonne": True,
+        "description": "亜鉛先物（LME, USD/t）",
+        "lb_to_tonne": False,
     },
     {
         "symbol": "TIO=F",
