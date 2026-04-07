@@ -18,6 +18,8 @@ export function DashboardPage() {
     lastUpdated,
     periodMode,
     setPeriodMode,
+    fiscalMonth,
+    setFiscalMonth,
     startDate,
     setStartDate,
     endDate,
@@ -49,6 +51,8 @@ export function DashboardPage() {
             onToggleProduct={toggleProductId}
             periodMode={periodMode}
             onPeriodModeChange={setPeriodMode}
+            fiscalMonth={fiscalMonth}
+            onFiscalMonthChange={setFiscalMonth}
             startDate={startDate}
             endDate={endDate}
             onStartDateChange={setStartDate}

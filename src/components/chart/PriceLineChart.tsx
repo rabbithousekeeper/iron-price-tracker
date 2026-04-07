@@ -26,12 +26,13 @@ export function PriceLineChart({ selectedSnapshots, chartRecords }: PriceLineCha
     .filter((r) => r.productId === firstProductId)
     .map((r) => ({ date: r.date, dateLabel: r.dateLabel }))
 
-  // グラフ用データを構築：各日付ごとに全品目の価格を横並びに
+  // グラフ用データを構築：各日付ラベルごとに全品目の価格を横並びに
   const data = dateLabels.map(({ date, dateLabel }) => {
     const point: Record<string, unknown> = { date, dateLabel }
     for (const snapshot of selectedSnapshots) {
+      // dateLabelで一致する品目を検索（集約モードでも正しくマッチ）
       const record = chartRecords.find(
-        (r) => r.productId === snapshot.product.id && r.date === date
+        (r) => r.productId === snapshot.product.id && r.dateLabel === dateLabel
       )
       if (record) {
         point[snapshot.product.id] = record.price

@@ -25,6 +25,7 @@ export interface PriceRecord {
   date: string        // 'YYYY-MM-DD' 形式
   dateLabel: string   // 表示用ラベル
   price: number
+  averagePrice?: number  // 集約時の期間平均価格
 }
 
 export interface PriceSnapshot {
@@ -39,7 +40,7 @@ export interface PriceSnapshot {
   ytdMax: number
 }
 
-export type PeriodMode = 'year' | 'month' | 'day'
+export type PeriodMode = 'year' | 'month' | 'day' | 'fiscal_year'
 
 export type SortKey = 'name' | 'price' | 'change' | 'changePercent'
 export type SortDirection = 'asc' | 'desc'
