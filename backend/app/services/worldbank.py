@@ -1,7 +1,7 @@
 """World Bank Commodity Prices API からデータを取得するサービス
 
 対象商品: 銅、アルミニウム、亜鉛、ニッケル、鉛、錫、鉄鉱石
-API: https://api.worldbank.org/v2/country/all/indicator/{indicator}
+API: https://api.worldbank.org/v2/en/indicator/{CODE}?format=json&source=89
 """
 
 import logging
@@ -82,16 +82,15 @@ async def fetch_worldbank_prices(
     async with httpx.AsyncClient(timeout=60.0) as client:
         for key, commodity in WORLDBANK_COMMODITIES.items():
             try:
-                # World Bank Indicators API（JSON形式）
-                # 各商品のWorld Bank指標コード
+                # World Bank Commodity Markets (source=89) 指標コード
                 indicator_map = {
-                    "COPPER": "CM.MKT.LMCU.CD",
-                    "ALUMINUM": "CM.MKT.LALM.CD",
-                    "ZINC": "CM.MKT.LZIN.CD",
-                    "NICKEL": "CM.MKT.LNKL.CD",
-                    "LEAD": "CM.MKT.LLED.CD",
-                    "TIN": "CM.MKT.LTIN.CD",
-                    "IRON_ORE": "CM.MKT.IRON.CD",
+                    "COPPER": "PCOPP",
+                    "ALUMINUM": "PALUM",
+                    "ZINC": "PZINC",
+                    "NICKEL": "PNICK",
+                    "LEAD": "PLEAD",
+                    "TIN": "PTIN",
+                    "IRON_ORE": "PIORECR",
                 }
 
                 indicator_code = indicator_map.get(commodity["indicator"])
@@ -100,9 +99,10 @@ async def fetch_worldbank_prices(
                     continue
 
                 url = (
-                    f"https://api.worldbank.org/v2/country/WLD/indicator/{indicator_code}"
-                    f"?date={start_year}:{date.today().year}"
-                    f"&format=json&per_page=500"
+                    f"https://api.worldbank.org/v2/en/indicator/{indicator_code}"
+                    f"?format=json&source=89"
+                    f"&date={start_year}:{date.today().year}"
+                    f"&per_page=300"
                 )
 
                 resp = await client.get(url)
