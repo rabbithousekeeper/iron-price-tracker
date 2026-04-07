@@ -89,7 +89,7 @@ export async function fetchSourceStatus(): Promise<
 }
 
 /**
- * 手動スクレイピングを実行
+ * 手動スクレイピングを実行（JISF + JISRI）
  */
 export async function triggerManualFetch(): Promise<{ message: string }> {
   if (!API_BASE_URL) {
@@ -97,6 +97,25 @@ export async function triggerManualFetch(): Promise<{ message: string }> {
   }
 
   const resp = await fetch(`${API_BASE_URL}/api/fetch/manual`, {
+    method: 'POST',
+  })
+  if (!resp.ok) {
+    throw new Error(`API error: ${resp.status} ${resp.statusText}`)
+  }
+
+  return resp.json()
+}
+
+/**
+ * 自動データ取得を実行（World Bank + EIA）
+ * DBが空なら過去20年分、データがあれば直近1年のみ取得
+ */
+export async function triggerAutoFetch(): Promise<{ message: string }> {
+  if (!API_BASE_URL) {
+    throw new Error('API_BASE_URL is not configured')
+  }
+
+  const resp = await fetch(`${API_BASE_URL}/api/fetch/auto`, {
     method: 'POST',
   })
   if (!resp.ok) {

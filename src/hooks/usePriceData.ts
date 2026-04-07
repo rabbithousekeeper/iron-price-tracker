@@ -1,8 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { PriceSnapshot, PriceRecord, TableSort, PeriodMode } from '../types'
 import { PRODUCTS } from '../data/products'
-import { generatePriceHistory } from '../data/mockData'
-import { isApiEnabled, fetchPrices, triggerManualFetch } from '../api/client'
+import { isApiEnabled, fetchPrices, triggerManualFetch, triggerAutoFetch } from '../api/client'
 
 // 年度キーを計算（決算月に基づく）
 function getFiscalYearKey(dateStr: string, fiscalMonth: number): string {
@@ -88,12 +87,12 @@ export function usePriceData() {
 
   const useApi = isApiEnabled()
 
-  // モックデータ（API未使用時のフォールバック）
-  const mockRecords = useMemo(() => (useApi ? [] : generatePriceHistory()), [useApi])
-
-  // API有効時: バックエンドからデータ取得
+  // バックエンドからデータ取得（API URLが設定されていない場合もリクエストを試みる）
   useEffect(() => {
-    if (!useApi) return
+    if (!useApi) {
+      setApiRecords([])
+      return
+    }
 
     let cancelled = false
     setApiLoading(true)
@@ -128,25 +127,44 @@ export function usePriceData() {
     setFetchVersion((v) => v + 1)
   }, [])
 
-  // 手動スクレイピング実行
+  // データ更新: fetch/autoとfetch/manualを両方実行
   const runManualFetch = useCallback(async () => {
     setManualFetching(true)
     setManualFetchResult(null)
+    const results: string[] = []
+    let hasError = false
+
+    // fetch/auto（World Bank + EIA）を実行
     try {
-      const result = await triggerManualFetch()
-      setManualFetchResult({ success: true, message: result.message })
-      // スクレイピング完了後にデータを再取得
-      setFetchVersion((v) => v + 1)
+      await triggerAutoFetch()
+      results.push('API自動取得完了')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'スクレイピングに失敗しました'
-      setManualFetchResult({ success: false, message })
-    } finally {
-      setManualFetching(false)
+      hasError = true
+      const msg = err instanceof Error ? err.message : 'API自動取得に失敗しました'
+      results.push(`API自動取得エラー: ${msg}`)
     }
+
+    // fetch/manual（JISF + JISRI スクレイピング）を実行
+    try {
+      await triggerManualFetch()
+      results.push('手動スクレイピング完了')
+    } catch (err) {
+      hasError = true
+      const msg = err instanceof Error ? err.message : 'スクレイピングに失敗しました'
+      results.push(`スクレイピングエラー: ${msg}`)
+    }
+
+    setManualFetchResult({
+      success: !hasError,
+      message: results.join(' / '),
+    })
+    // 完了後にデータを再取得
+    setFetchVersion((v) => v + 1)
+    setManualFetching(false)
   }, [])
 
-  // データソース: APIデータまたはモックデータ
-  const allRecords = useApi ? (apiRecords ?? []) : mockRecords
+  // データソース: APIデータのみ（モックデータは使用しない）
+  const allRecords = apiRecords ?? []
 
   // 日付範囲でフィルタリング
   const filteredRecords = useMemo(() => {
@@ -360,5 +378,6 @@ export function usePriceData() {
     runManualFetch,
     manualFetching,
     manualFetchResult,
+    dataCount: allRecords.length,
   }
 }

@@ -61,8 +61,11 @@ EIA_NAPHTHA_FALLBACK = {
 }
 
 
-async def fetch_eia_prices(db: Session) -> int:
-    """EIA APIから原油・ナフサ価格を取得してDBに保存"""
+async def fetch_eia_prices(db: Session, start_year: int | None = None) -> int:
+    """EIA APIから原油・ナフサ価格を取得してDBに保存
+
+    start_yearを指定すると、その年以降のデータのみ取得する。
+    """
     api_key = settings.EIA_API_KEY
     if not api_key:
         logger.warning("EIA_API_KEYが設定されていません。EIAデータ取得をスキップします。")
@@ -76,6 +79,9 @@ async def fetch_eia_prices(db: Session) -> int:
         db.commit()
         return 0
 
+    if start_year is None:
+        start_year = date.today().year - 2
+
     total_saved = 0
     errors: list[str] = []
 
@@ -83,7 +89,10 @@ async def fetch_eia_prices(db: Session) -> int:
         for key, series in EIA_SERIES.items():
             try:
                 url = f"https://api.eia.gov/v2/{series['route']}"
-                params = {**series["params"], "api_key": api_key}
+                # start_yearに応じてlengthを調整（1年あたり約52週）
+                years_to_fetch = date.today().year - start_year + 1
+                adjusted_length = max(500, years_to_fetch * 52)
+                params = {**series["params"], "api_key": api_key, "length": adjusted_length}
 
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
@@ -118,6 +127,10 @@ async def fetch_eia_prices(db: Session) -> int:
                     try:
                         price_date = date.fromisoformat(period)
                     except (ValueError, TypeError):
+                        continue
+
+                    # start_year以降のデータのみ取得
+                    if price_date.year < start_year:
                         continue
 
                     records_to_upsert.append({

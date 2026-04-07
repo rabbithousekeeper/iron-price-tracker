@@ -33,6 +33,7 @@ export function DashboardPage() {
     runManualFetch,
     manualFetching,
     manualFetchResult,
+    dataCount,
   } = usePriceData()
 
   return (
@@ -116,43 +117,57 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* 価格カード */}
-        <section aria-label="現在の価格">
-          <PriceCardGrid
-            snapshots={snapshots}
-            selectedProductIds={selectedProductIds}
-            onToggle={toggleProductId}
-          />
-        </section>
+        {/* データが空の場合のメッセージ */}
+        {!apiLoading && dataCount === 0 && (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-6 py-8 text-center">
+            <p className="text-yellow-800 text-base font-medium">
+              データがありません。データを更新ボタンで取得してください。
+            </p>
+          </div>
+        )}
 
-        {/* チャートパネル */}
-        <section aria-label="価格チャート">
-          <PriceChartPanel
-            snapshots={snapshots}
-            selectedSnapshots={selectedSnapshots}
-            selectedProductIds={selectedProductIds}
-            onToggleProduct={toggleProductId}
-            periodMode={periodMode}
-            onPeriodModeChange={setPeriodMode}
-            fiscalMonth={fiscalMonth}
-            onFiscalMonthChange={setFiscalMonth}
-            startDate={startDate}
-            endDate={endDate}
-            onStartDateChange={setStartDate}
-            onEndDateChange={setEndDate}
-            chartRecords={chartRecords}
-            onDownloadCsv={downloadCsv}
-          />
-        </section>
+        {/* データがある場合のみ表示 */}
+        {dataCount > 0 && (
+          <>
+            {/* 価格カード */}
+            <section aria-label="現在の価格">
+              <PriceCardGrid
+                snapshots={snapshots}
+                selectedProductIds={selectedProductIds}
+                onToggle={toggleProductId}
+              />
+            </section>
 
-        {/* データテーブル */}
-        <section aria-label="価格データ一覧">
-          <PriceTable
-            sortedSnapshots={sortedSnapshots}
-            sort={sort}
-            onSort={setSort}
-          />
-        </section>
+            {/* チャートパネル */}
+            <section aria-label="価格チャート">
+              <PriceChartPanel
+                snapshots={snapshots}
+                selectedSnapshots={selectedSnapshots}
+                selectedProductIds={selectedProductIds}
+                onToggleProduct={toggleProductId}
+                periodMode={periodMode}
+                onPeriodModeChange={setPeriodMode}
+                fiscalMonth={fiscalMonth}
+                onFiscalMonthChange={setFiscalMonth}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                chartRecords={chartRecords}
+                onDownloadCsv={downloadCsv}
+              />
+            </section>
+
+            {/* データテーブル */}
+            <section aria-label="価格データ一覧">
+              <PriceTable
+                sortedSnapshots={sortedSnapshots}
+                sort={sort}
+                onSort={setSort}
+              />
+            </section>
+          </>
+        )}
 
         {/* データソース */}
         <section aria-label="データ取得ソース">
