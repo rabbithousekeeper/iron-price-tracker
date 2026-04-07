@@ -1,11 +1,14 @@
-"""手動データ取得エンドポイント"""
+"""データ取得エンドポイント"""
 
 import logging
+from datetime import date
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.price import CommodityPrice
 from app.services.worldbank import fetch_worldbank_prices
 from app.services.eia import fetch_eia_prices
 from app.services.meti import fetch_meti_prices
@@ -45,6 +48,50 @@ async def trigger_fetch_all(db: Session = Depends(get_db)):
         results["meti"] = {"error": str(e)}
 
     return {"status": "completed", "results": results}
+
+
+@router.post("/auto")
+async def trigger_fetch_auto(db: Session = Depends(get_db)):
+    """World Bank + EIA APIからデータを自動取得
+
+    DBのレコード件数が0の場合は2005年から現在まで全取得、
+    1件以上ある場合は直近1年のみ更新する。
+    """
+    results = {}
+    record_count = db.query(func.count(CommodityPrice.id)).scalar() or 0
+
+    if record_count == 0:
+        # DB空: 2005年から全取得
+        start_year = 2005
+        logger.info(f"DBレコード0件: {start_year}年から全データを取得します")
+    else:
+        # データあり: 直近1年のみ
+        start_year = date.today().year - 1
+        logger.info(f"DBレコード{record_count}件: {start_year}年から直近データを更新します")
+
+    # World Bank API（銅・アルミ・亜鉛・ニッケル・鉛・錫・鉄鉱石）
+    try:
+        count = await fetch_worldbank_prices(db, start_year=start_year)
+        results["worldbank"] = {"status": "success", "records": count}
+    except Exception as e:
+        logger.error(f"World Bank取得エラー: {e}")
+        results["worldbank"] = {"status": "error", "message": str(e)}
+
+    # EIA API（原油WTI）
+    try:
+        count = await fetch_eia_prices(db)
+        results["eia"] = {"status": "success", "records": count}
+    except Exception as e:
+        logger.error(f"EIA取得エラー: {e}")
+        results["eia"] = {"status": "error", "message": str(e)}
+
+    return {
+        "status": "completed",
+        "db_records_before": record_count,
+        "fetch_mode": "full" if record_count == 0 else "incremental",
+        "start_year": start_year,
+        "results": results,
+    }
 
 
 @router.post("/manual")

@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
 import type { PriceSnapshot, PriceRecord, TableSort, PeriodMode } from '../types'
 import { PRODUCTS } from '../data/products'
-import { generatePriceHistory } from '../data/mockData'
 import { isApiEnabled, fetchPrices, triggerManualFetch } from '../api/client'
 
 // 年度キーを計算（決算月に基づく）
@@ -88,9 +87,6 @@ export function usePriceData() {
 
   const useApi = isApiEnabled()
 
-  // モックデータ（API未使用時のフォールバック）
-  const mockRecords = useMemo(() => (useApi ? [] : generatePriceHistory()), [useApi])
-
   // API有効時: バックエンドからデータ取得
   useEffect(() => {
     if (!useApi) return
@@ -145,21 +141,23 @@ export function usePriceData() {
     }
   }, [])
 
-  // データソース: APIデータまたはモックデータ
-  const allRecords = useApi ? (apiRecords ?? []) : mockRecords
+  // データソース: APIデータのみ（モックデータは使用しない）
+  const allRecords = apiRecords ?? []
 
   // 日付範囲でフィルタリング
   const filteredRecords = useMemo(() => {
     return allRecords.filter((r) => r.date >= startDate && r.date <= endDate)
   }, [allRecords, startDate, endDate])
 
-  // スナップショット（全品目のサマリ）
+  // スナップショット（データが存在する品目のみ）
   const snapshots: PriceSnapshot[] = useMemo(() => {
-    return PRODUCTS.map((product) => {
+    return PRODUCTS.filter((product) =>
+      filteredRecords.some((r) => r.productId === product.id)
+    ).map((product) => {
       const history = filteredRecords.filter((r) => r.productId === product.id)
       if (history.length < 2) {
-        // データ不足の場合のフォールバック
-        const price = history.length > 0 ? history[0].price : product.basePrice
+        // データが1件のみの場合
+        const price = history[0].price
         return {
           product,
           currentPrice: price,
@@ -333,6 +331,9 @@ export function usePriceData() {
     URL.revokeObjectURL(url)
   }, [selectedProductIds, filteredRecords, periodMode, fiscalMonth])
 
+  // データが存在するかどうか
+  const hasData = allRecords.length > 0
+
   return {
     snapshots,
     selectedProductIds,
@@ -352,6 +353,7 @@ export function usePriceData() {
     setEndDate,
     chartRecords,
     downloadCsv,
+    hasData,
     // API関連の状態
     isUsingApi: useApi,
     apiLoading,

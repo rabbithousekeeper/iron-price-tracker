@@ -33,6 +33,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
     setEndDate,
     chartRecords,
     downloadCsv,
+    hasData,
     isUsingApi,
     apiLoading,
     apiError,
@@ -123,43 +124,57 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
           </div>
         )}
 
-        {/* 価格カード */}
-        <section aria-label="現在の価格">
-          <PriceCardGrid
-            snapshots={snapshots}
-            selectedProductIds={selectedProductIds}
-            onToggle={toggleProductId}
-          />
-        </section>
+        {/* データなし時のメッセージ */}
+        {!apiLoading && !hasData && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-12 text-center">
+            <p className="text-gray-500 text-lg">
+              データがありません。「データを更新」ボタンでデータを取得してください。
+            </p>
+          </div>
+        )}
 
-        {/* チャートパネル */}
-        <section aria-label="価格チャート">
-          <PriceChartPanel
-            snapshots={snapshots}
-            selectedSnapshots={selectedSnapshots}
-            selectedProductIds={selectedProductIds}
-            onToggleProduct={toggleProductId}
-            periodMode={periodMode}
-            onPeriodModeChange={setPeriodMode}
-            fiscalMonth={fiscalMonth}
-            onFiscalMonthChange={setFiscalMonth}
-            startDate={startDate}
-            endDate={endDate}
-            onStartDateChange={setStartDate}
-            onEndDateChange={setEndDate}
-            chartRecords={chartRecords}
-            onDownloadCsv={downloadCsv}
-          />
-        </section>
+        {/* データあり時のみ表示 */}
+        {hasData && (
+          <>
+            {/* 価格カード */}
+            <section aria-label="現在の価格">
+              <PriceCardGrid
+                snapshots={snapshots}
+                selectedProductIds={selectedProductIds}
+                onToggle={toggleProductId}
+              />
+            </section>
 
-        {/* データテーブル */}
-        <section aria-label="価格データ一覧">
-          <PriceTable
-            sortedSnapshots={sortedSnapshots}
-            sort={sort}
-            onSort={setSort}
-          />
-        </section>
+            {/* チャートパネル */}
+            <section aria-label="価格チャート">
+              <PriceChartPanel
+                snapshots={snapshots}
+                selectedSnapshots={selectedSnapshots}
+                selectedProductIds={selectedProductIds}
+                onToggleProduct={toggleProductId}
+                periodMode={periodMode}
+                onPeriodModeChange={setPeriodMode}
+                fiscalMonth={fiscalMonth}
+                onFiscalMonthChange={setFiscalMonth}
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                chartRecords={chartRecords}
+                onDownloadCsv={downloadCsv}
+              />
+            </section>
+
+            {/* データテーブル */}
+            <section aria-label="価格データ一覧">
+              <PriceTable
+                sortedSnapshots={sortedSnapshots}
+                sort={sort}
+                onSort={setSort}
+              />
+            </section>
+          </>
+        )}
 
         {/* データソース */}
         <section aria-label="データ取得ソース">

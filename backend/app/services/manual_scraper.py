@@ -24,7 +24,7 @@ JISF_STATS_URL = f"{JISF_BASE_URL}/data/iandsteel/"
 
 # 日本鉄リサイクル工業会（JISRI）の市況ページ
 JISRI_BASE_URL = "https://www.jisri.or.jp"
-JISRI_MARKET_URL = f"{JISRI_BASE_URL}/kakaku/kakaku.html"
+JISRI_MARKET_URL = f"{JISRI_BASE_URL}/kakaku"
 
 # 東京製鐵株式会社の公表価格ページ
 TOKYO_STEEL_BASE_URL = "https://www.tokyosteel.co.jp"
