@@ -1,7 +1,7 @@
 """価格トラッカー バックエンドAPI
 
 FastAPIアプリケーションのエントリーポイント
-Render Web Serviceとしてデプロイ可能な構成
+Supabase PostgreSQL + Render Web Serviceとしてデプロイ可能な構成
 """
 
 import logging
@@ -25,8 +25,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """アプリケーションのライフサイクル管理"""
-    # 起動時: DB初期化とスケジューラー開始
-    logger.info("価格トラッカーAPI起動中...")
+    # 起動時: Supabase DB初期化とスケジューラー開始
+    logger.info("価格トラッカーAPI起動中（Supabase PostgreSQL接続）...")
+    logger.info(f"USE_REAL_DATA: {settings.USE_REAL_DATA}")
     init_db()
     start_scheduler()
     logger.info("APIサーバー起動完了")
