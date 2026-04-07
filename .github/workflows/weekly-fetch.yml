@@ -1,0 +1,29 @@
+name: Weekly Data Fetch / 週次データ取得
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'  # 毎週月曜 10:00 JST（UTC 01:00）
+  workflow_dispatch:      # GitHub上から手動実行も可能
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Wake up Render backend / Renderを起動
+        run: |
+          curl -sf https://price-tracker-backend-0dai.onrender.com/health || true
+          sleep 40
+
+      - name: Fetch auto data (Yahoo Finance + EIA) / 自動データ取得
+        run: |
+          curl -sf -X POST \
+            https://price-tracker-backend-0dai.onrender.com/api/fetch/auto \
+            -H "Content-Type: application/json"
+
+      - name: Fetch manual data (JISRI, Tetsugen, Westmetall, BOJ CGPI) / 手動スクレイピング
+        run: |
+          curl -sf -X POST \
+            https://price-tracker-backend-0dai.onrender.com/api/fetch/manual \
+            -H "Content-Type: application/json"
