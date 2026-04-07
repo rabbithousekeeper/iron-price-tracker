@@ -18,6 +18,7 @@ from app.services.manual_scraper import (
     fetch_tokyo_steel_prices,
     fetch_tetsugen_prices,
     fetch_westmetall_prices,
+    fetch_boj_cgpi_prices,
     fetch_manual_all,
 )
 
@@ -148,6 +149,13 @@ async def trigger_fetch_westmetall(db: Session = Depends(get_db)):
     """WestmetallからLMEニッケル・錫の日次価格を手動取得"""
     count = await fetch_westmetall_prices(db)
     return {"status": "success", "source": "westmetall", "records_saved": count}
+
+
+@router.post("/manual/boj-cgpi")
+async def trigger_fetch_boj_cgpi(db: Session = Depends(get_db)):
+    """日本銀行 企業物価指数（CGPI）から特殊鋼・ステンレス指数を手動取得"""
+    count = await fetch_boj_cgpi_prices(db)
+    return {"status": "success", "source": "boj_cgpi", "records_saved": count}
 
 
 @router.post("/worldbank")

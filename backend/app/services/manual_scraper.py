@@ -6,11 +6,13 @@
 POST /api/fetch/manual エンドポイントから呼び出される手動取得専用。
 """
 
+import io
 import logging
 import re
 from datetime import date, datetime
 
 import httpx
+import openpyxl
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -37,6 +39,9 @@ TOKYO_STEEL_SALES_URL = f"{TOKYO_STEEL_BASE_URL}/salesprice/"
 # Westmetall LME価格ページ
 WESTMETALL_NI_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Ni_cash"
 WESTMETALL_SN_URL = "https://www.westmetall.com/en/markdaten.php?action=table&field=LME_Sn_cash"
+
+# 日本銀行 企業物価指数（CGPI）リリースページ
+BOJ_CGPI_INDEX_URL = "https://www.boj.or.jp/statistics/pi/cgpi_release/"
 
 # スクレイピング対象の鉄鋼製品マッピング
 JISF_PRODUCTS = {
@@ -353,53 +358,139 @@ async def fetch_tetsugen_prices(db: Session) -> int:
     return total_saved
 
 
-async def fetch_westmetall_prices(db: Session) -> int:
-    """WestmetallからLMEニッケル・錫の日次価格をスクレイピング"""
+async def fetch_boj_cgpi_prices(db: Session) -> int:
+    """日本銀行 企業物価指数（CGPI）のExcelファイルから特殊鋼・ステンレス指数を取得"""
     total_saved = 0
     errors: list[str] = []
 
-    targets = [
-        {"url": WESTMETALL_NI_URL, "product_id": "nickel", "label": "ニッケル"},
-        {"url": WESTMETALL_SN_URL, "product_id": "tin", "label": "錫"},
-    ]
+    target_items = {
+        "特殊鋼棒鋼": "tool_steel",
+        "ステンレス鋼板": "stainless_sheet",
+    }
 
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0)",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en,ja;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Accept-Language": "ja,en;q=0.9",
     }
 
-    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
-        for target in targets:
-            try:
-                resp = await client.get(target["url"])
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True, headers=headers) as client:
+        try:
+            resp = await client.get(BOJ_CGPI_INDEX_URL)
+            resp.raise_for_status()
+            index_html = _decode_html(resp.content)
+
+            xlsx_match = re.search(r'href="([^"]*cgpi\d+\.xlsx)"', index_html, re.IGNORECASE)
+            if not xlsx_match:
+                msg = "日銀CGPI: Excelファイルリンクが見つかりません"
+                logger.warning(msg)
+                errors.append(msg)
+            else:
+                xlsx_path = xlsx_match.group(1)
+                if xlsx_path.startswith("http"):
+                    xlsx_url = xlsx_path
+                elif xlsx_path.startswith("/"):
+                    xlsx_url = f"https://www.boj.or.jp{xlsx_path}"
+                else:
+                    xlsx_url = f"{BOJ_CGPI_INDEX_URL}{xlsx_path}"
+
+                logger.info(f"日銀CGPI Excel URL: {xlsx_url}")
+                resp = await client.get(xlsx_url)
                 resp.raise_for_status()
-                content = _decode_html(resp.content)
-                records = _parse_westmetall_html(content, target["product_id"])
+
+                wb = openpyxl.load_workbook(io.BytesIO(resp.content), read_only=True, data_only=True)
+                records = _parse_boj_cgpi_excel(wb, target_items)
+                wb.close()
+
                 if records:
                     total_saved += _upsert_records(db, records)
-                    logger.info(f"Westmetall {target['label']}: {len(records)}件取得")
+                    logger.info(f"日銀CGPI: {len(records)}件取得")
                 else:
-                    logger.warning(f"Westmetall {target['label']}: 解析可能なデータが見つかりませんでした")
-            except httpx.HTTPStatusError as e:
-                msg = f"Westmetall {target['label']} HTTPエラー: {e.response.status_code}"
-                logger.error(msg)
-                errors.append(msg)
-            except Exception as e:
-                msg = f"Westmetall {target['label']} 取得エラー: {str(e)}"
-                logger.error(msg)
-                errors.append(msg)
+                    logger.warning("日銀CGPI: 対象品目のデータが見つかりませんでした")
+
+        except httpx.HTTPStatusError as e:
+            msg = f"日銀CGPI HTTPエラー: {e.response.status_code}"
+            logger.error(msg)
+            errors.append(msg)
+        except Exception as e:
+            msg = f"日銀CGPI取得エラー: {str(e)}"
+            logger.error(msg)
+            errors.append(msg)
 
     log = FetchLog(
-        source="westmetall",
+        source="boj_cgpi",
         status="success" if not errors else "error",
         message="; ".join(errors) if errors else f"{total_saved}件取得",
         records_count=total_saved,
     )
     db.add(log)
     db.commit()
-
     return total_saved
+
+
+def _parse_boj_cgpi_excel(wb: openpyxl.Workbook, target_items: dict[str, str]) -> list[dict]:
+    """日銀CGPIのExcelから対象品目の指数値を抽出"""
+    records = []
+    for sheet in wb.sheetnames:
+        ws = wb[sheet]
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            continue
+        for row_idx, row in enumerate(rows):
+            if not row:
+                continue
+            for col_idx, cell_val in enumerate(row):
+                if cell_val is None:
+                    continue
+                cell_str = str(cell_val).strip()
+                for keyword, product_id in target_items.items():
+                    if keyword not in cell_str:
+                        continue
+                    for data_col in range(col_idx + 1, len(row)):
+                        val = row[data_col]
+                        if val is None:
+                            continue
+                        try:
+                            price = float(val)
+                        except (ValueError, TypeError):
+                            continue
+                        price_date = _find_date_in_header(rows, row_idx, data_col)
+                        if price_date is None:
+                            continue
+                        records.append({
+                            "product_id": product_id,
+                            "price_date": price_date,
+                            "price": price,
+                            "source": "boj_cgpi",
+                            "created_at": datetime.utcnow(),
+                        })
+    return records
+
+
+def _find_date_in_header(rows: list, current_row: int, col: int) -> date | None:
+    """ヘッダー行から日付情報を探す"""
+    for r in range(current_row - 1, max(current_row - 10, -1), -1):
+        if r < 0 or r >= len(rows):
+            continue
+        row = rows[r]
+        if col >= len(row):
+            continue
+        val = row[col]
+        if val is None:
+            continue
+        val_str = str(val).strip()
+        m = re.match(r"(\d{4})[/\-年](\d{1,2})", val_str)
+        if m:
+            try:
+                return date(int(m.group(1)), int(m.group(2)), 1)
+            except ValueError:
+                continue
+        if hasattr(val, 'year') and hasattr(val, 'month'):
+            try:
+                return date(val.year, val.month, 1)
+            except (ValueError, AttributeError):
+                continue
+    return None
 
 
 async def fetch_manual_all(db: Session) -> dict:
@@ -445,6 +536,14 @@ async def fetch_manual_all(db: Session) -> dict:
     except Exception as e:
         logger.error(f"Westmetall取得エラー: {e}")
         results["westmetall"] = {"status": "error", "message": str(e)}
+
+    # 日本銀行 企業物価指数（CGPI）
+    try:
+        count = await fetch_boj_cgpi_prices(db)
+        results["boj_cgpi"] = {"status": "success", "records": count}
+    except Exception as e:
+        logger.error(f"日銀CGPI取得エラー: {e}")
+        results["boj_cgpi"] = {"status": "error", "message": str(e)}
 
     return results
 

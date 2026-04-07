@@ -120,6 +120,45 @@ export function LegalPage({ onBack }: LegalPageProps) {
             <DlRow label="アクセス管理" value="月1回以内、User-Agentに識別情報を明記" />
           </dl>
         </SourceBlock>
+
+        {/* 1-7 日本鉄源協会 */}
+        <SourceBlock title="1-7 一般社団法人 日本鉄源協会">
+          <dl className="space-y-1">
+            <DlRow label="対象品目" value="鉄スクラップ（H2炉前価格 三地区平均、1987年度〜）" />
+            <DlRow label="データURL">
+              <ExtLink href="http://tetsugen.or.jp/kiso/2sukurap.htm">http://tetsugen.or.jp/kiso/2sukurap.htm</ExtLink>
+            </DlRow>
+            <DlRow label="法的位置づけ" value="一般社団法人日本鉄源協会が公表する業界統計" />
+            <DlRow label="利用条件" value="非商用の情報収集・参考目的での参照。データは参考値として表示し、同協会が公表する数値であることを明示" />
+          </dl>
+        </SourceBlock>
+
+        {/* 1-8 Westmetall */}
+        <SourceBlock title="1-8 Westmetall">
+          <dl className="space-y-1">
+            <DlRow label="対象品目" value="LMEニッケル（現物）、LME錫（現物）" />
+            <DlRow label="データURL">
+              <ExtLink href="https://www.westmetall.com/en/markdaten.php">https://www.westmetall.com/en/markdaten.php</ExtLink>
+            </DlRow>
+            <DlRow label="法的位置づけ" value="ドイツの民間金属情報サービスが整理・公表するLME市場価格データ" />
+            <DlRow label="利用条件" value="本サービスでは価格の数値のみを非商用目的で参照し、データは参考値として表示" />
+          </dl>
+        </SourceBlock>
+
+        {/* 1-9 日本銀行 企業物価指数（CGPI） */}
+        <SourceBlock title="1-9 日本銀行 企業物価指数（CGPI）">
+          <dl className="space-y-1">
+            <DlRow label="対象品目" value="特殊鋼・ステンレス（物価指数、2020年=100）" />
+            <DlRow label="データURL">
+              <ExtLink href="https://www.boj.or.jp/statistics/pi/cgpi_2020/index.htm">https://www.boj.or.jp/statistics/pi/cgpi_2020/index.htm</ExtLink>
+            </DlRow>
+            <DlRow label="法的位置づけ" value="日本銀行が公表する公的統計データ" />
+            <DlRow label="利用条件" value="出典を明示することで利用可能" />
+          </dl>
+          <p className="text-sm text-amber-700 font-medium mt-2">
+            重要: このデータは2020年を100とした物価指数であり、円/トンの実際の取引価格ではありません。
+          </p>
+        </SourceBlock>
       </Section>
 
       {/* セクション2：データ収集の法的根拠 */}
