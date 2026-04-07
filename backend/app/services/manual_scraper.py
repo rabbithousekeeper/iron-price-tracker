@@ -358,6 +358,55 @@ async def fetch_tetsugen_prices(db: Session) -> int:
     return total_saved
 
 
+async def fetch_westmetall_prices(db: Session) -> int:
+    """WestmetallからLMEニッケル・錫の日次価格をスクレイピング"""
+    total_saved = 0
+    errors: list[str] = []
+
+    targets = [
+        {"url": WESTMETALL_NI_URL, "product_id": "nickel", "label": "ニッケル"},
+        {"url": WESTMETALL_SN_URL, "product_id": "tin", "label": "錫"},
+    ]
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+        "Accept-Language": "en,ja;q=0.9",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, headers=headers) as client:
+        for target in targets:
+            try:
+                resp = await client.get(target["url"])
+                resp.raise_for_status()
+                content = _decode_html(resp.content)
+                records = _parse_westmetall_html(content, target["product_id"])
+                if records:
+                    total_saved += _upsert_records(db, records)
+                    logger.info(f"Westmetall {target['label']}: {len(records)}件取得")
+                else:
+                    logger.warning(f"Westmetall {target['label']}: 解析可能なデータが見つかりませんでした")
+            except httpx.HTTPStatusError as e:
+                msg = f"Westmetall {target['label']} HTTPエラー: {e.response.status_code}"
+                logger.error(msg)
+                errors.append(msg)
+            except Exception as e:
+                msg = f"Westmetall {target['label']} 取得エラー: {str(e)}"
+                logger.error(msg)
+                errors.append(msg)
+
+    log = FetchLog(
+        source="westmetall",
+        status="success" if not errors else "error",
+        message="; ".join(errors) if errors else f"{total_saved}件取得",
+        records_count=total_saved,
+    )
+    db.add(log)
+    db.commit()
+
+    return total_saved
+
+
 async def fetch_boj_cgpi_prices(db: Session) -> int:
     """日本銀行 企業物価指数（CGPI）のExcelファイルから特殊鋼・ステンレス指数を取得"""
     total_saved = 0
