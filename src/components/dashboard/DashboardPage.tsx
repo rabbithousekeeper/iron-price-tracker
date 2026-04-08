@@ -11,6 +11,7 @@ type Page = 'dashboard' | 'legal'
 
 interface DashboardPageProps {
   onNavigate?: (page: Page) => void
+  onLogout?: () => void
 }
 
 // 日時フォーマット（日本時間 JST 表示）
@@ -28,7 +29,7 @@ function formatDateTime(iso: string | null): string {
   })
 }
 
-export function DashboardPage({ onNavigate }: DashboardPageProps) {
+export function DashboardPage({ onNavigate, onLogout }: DashboardPageProps) {
   const {
     snapshots,
     selectedProductIds,
@@ -63,7 +64,7 @@ export function DashboardPage({ onNavigate }: DashboardPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header lastUpdated={lastUpdated} onNavigate={onNavigate} />
+      <Header lastUpdated={lastUpdated} onNavigate={onNavigate} onLogout={onLogout} />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* API状態バー */}

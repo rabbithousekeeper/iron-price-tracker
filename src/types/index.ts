@@ -18,6 +18,7 @@ export interface Product {
   volatility: number
   color: string
   description: string
+  note?: string
 }
 
 export interface PriceRecord {

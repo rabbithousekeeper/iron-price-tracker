@@ -91,6 +91,13 @@ export function PriceCard({ snapshot, onClick, isSelected }: PriceCardProps) {
           />
         </div>
       </div>
+
+      {/* データソース注釈 */}
+      {product.note && (
+        <p className="mt-2 text-xs text-gray-400 leading-relaxed">
+          ⚠️ {product.note}
+        </p>
+      )}
     </button>
   )
 }

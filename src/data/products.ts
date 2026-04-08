@@ -288,6 +288,7 @@ export const PRODUCTS: Product[] = [
     volatility: 0.06,
     color: '#64748b',
     description: 'アルミニウム新地金（99.7%）建値',
+    note: 'COMEX先物(ALI=F)取得。LME公式価格と市場差があります',
   },
   {
     id: 'zinc',
@@ -299,6 +300,7 @@ export const PRODUCTS: Product[] = [
     volatility: 0.07,
     color: '#78716c',
     description: '亜鉛地金（蒸留亜鉛99.99%）建値',
+    note: 'SGX/ICE先物(ZNC=F)取得。LME公式価格と市場差があります',
   },
   {
     id: 'nickel',
