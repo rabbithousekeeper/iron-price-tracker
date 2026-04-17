@@ -242,7 +242,7 @@ async def fetch_tokyo_steel_prices(db: Session) -> int:
     errors: list[str] = []
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; PriceTracker/1.0; +https://github.com/rabbithousekeeper/iron-price-tracker)",
+        "User-Agent": "iron-price-tracker/1.0",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "ja,en;q=0.9",
     }
