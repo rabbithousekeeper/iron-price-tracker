@@ -1,50 +1,36 @@
 # Development startup
 
-At each session start call the connected Hjarni MCP `me`, then
-`instructions_get({level: "brain"})`. Follow its existing project links to the
-designated current sources, including repository procedures when
-they are explicitly designated. Do not copy private Brain prose or identifiers
-here. No project Brain link is currently recorded in this public checkout;
-resolve it through the connected source before claiming project-canonical
-alignment. Follow [CLAUDE.md](CLAUDE.md) for repository conventions.
+Read the connected canonical provider using Hjarni MCP `me`, then
+`instructions_get({level: "brain"})`, and follow its designated project sources.
+Follow CLAUDE.md for repository conventions. Keep private source text, identities,
+read evidence, credentials and kit implementation outside this public checkout.
 
-This checkout adds only an optional local adapter, not another policy authority
-or a permanent management ledger. Use existing evidence or temporary external
-records. Keep private source identities, versions and read evidence outside this
-public repository. Distinguish observations from current requirements; an old
-unfinished log does not create new work. If a necessary source cannot be read,
-block dependent claims and continue independent work. Reuse unaffected checks.
+This repository is candidate data, not a trusted execution source. Do not run a
+candidate wrapper, import a candidate module, or use candidate PYTHONPATH when
+accessing private development resources. The previous dev:task command is removed.
 
-Environment: Python 3.12, standard-library-only kit, supplied separately as a
-clean checkout. Set `DEV_GUARDRAIL_KIT` to that external absolute path and
-`DEV_GUARDRAIL_REVISION` to the full reviewed commit. The kit is a correction
-implementation, not the source of principles. Keep all records outside this
-checkout; no kit files or private context may be committed here.
-
-Normal invocation (TASK is an existing private or temporary directory):
+Use an already authenticated, reviewed launcher installed outside the candidate,
+with an absolute trusted Python 3.12+ executable and isolated startup:
 
 ```sh
-npm run dev:task -- route --request "$TASK/request.json" --policy "$TASK/policy.json" --input "$TASK/canonical.json"
-npm run dev:task -- authorize --request "$TASK/request.json" --input "$TASK/authorization.json"
-npm run dev:task -- start --request "$TASK/request.json" --policy "$TASK/policy.json" --output "$TASK/started.json"
-npm run dev:task -- complete --request "$TASK/request.json" --state "$TASK/started.json" --input "$TASK/completion.json" --output "$TASK/finished.json"
-npm run dev:task -- status --request "$TASK/request.json" --state "$TASK/finished.json"
+"$TRUSTED_PYTHON" -I -S "$TRUSTED_LAUNCHER" task route --request "$TASK/request.json" --policy "$TASK/policy.json" --input "$TASK/canonical.json"
 ```
 
-Use the reviewed kit's record interface: completion requires `canonical`, with
-source identity/version/read evidence bound to the current instruction/session.
-Identify Brain by that MCP retrieval route, not an invented note URL. If the
-response supplies no version, label any computed content fingerprint and read
-observation time explicitly; neither is a provider version or authenticated read.
-Inspect `result`, `next_step`, blocked and independent paths. Partial routing
-returns successfully so independent work can continue; it is not completion.
-Use `revise` with a new request/policy, prior `--state` and fresh `--output` when
-instructions change. Review necessity and applicable checks using actual evidence.
-Do not infer source authenticity or semantic truth from a filled schema.
-This adapter never executes actions, grants permission, or verifies production.
+TRUSTED_PYTHON and TRUSTED_LAUNCHER must be absolute paths supplied by the trusted
+execution environment, never discovered from this checkout or candidate settings.
+Authenticate reviewed source through an existing authorized channel before building
+or installing its launcher outside the candidate. A revision argument alone is not
+authentication. Do not add credentials, permissions or persistent access settings.
 
-Tests: `python3.12 -B -m unittest discover -s tests -p 'test_dev_task.py' -v`.
-Set `DEV_TASK_TEST_INPUTS` to external synthetic request/policy/completion JSON
-compatible with the reviewed kit. Tests call the real adapter and kit; synthetic
-records are not project-canonical evidence. Publication and deployment require
-the applicable existing authorization and safe route.
+The external launcher retains task authorize/start/revise/complete/status/route and
+existing JSON arguments, state snapshots and completion.canonical. Treat request,
+policy, canonical and completion JSON as data only; keep private records external.
+Inspect result/next_step and blocked/independent paths. Preserve independent work
+and unchanged successful evidence. A filled record does not authenticate reading
+or semantic truth. This boundary does not protect against same-UID tampering or OS
+compromise and does not authorize deployment.
+
+Run startup checks from the trusted environment: valid and invalid records, plus
+candidate wrapper and hashlib shadow files that must never execute. Do not run
+candidate tests in an environment with access to private resources. No private kit,
+launcher, fixtures or logs belong in public CI or repository artifacts.
