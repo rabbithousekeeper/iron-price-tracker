@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:task": "python3.12 tools/dev_task.py",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
