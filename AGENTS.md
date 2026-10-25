@@ -18,6 +18,9 @@ with an absolute trusted Python 3.12+ executable and isolated startup:
 
 TRUSTED_PYTHON and TRUSTED_LAUNCHER must be absolute paths supplied by the trusted
 execution environment, never discovered from this checkout or candidate settings.
+TRUSTED_LAUNCHER must select the reviewed external consumer adapter that preserves
+repository record-path restrictions and result/next_step exit semantics, then
+invokes the integrity-checked common launcher. Do not bypass that adapter.
 Authenticate reviewed source through an existing authorized channel before building
 or installing its launcher outside the candidate. A revision argument alone is not
 authentication. Do not add credentials, permissions or persistent access settings.
